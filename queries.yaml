@@ -1,0 +1,3 @@
+merge to master:
+  command: mtm
+  jql: project = UI and status = "Merge To Master DOING" and "Epic Link" not in (UI-771, UI-1010)
