@@ -4,7 +4,6 @@ from cmd import Cmd
 import sys
 
 from lib import (
-    valid_commands,
     init_lib,
     get_jira_issue,
     search_issues,
@@ -12,8 +11,13 @@ from lib import (
     write_issues,
     issues_details,
     issue_details,
+    get_stored_core_data_for_query,
     ANSIColors,
     JiraIssues
+)
+
+from const import (
+    valid_commands,
 )
 
 
@@ -29,12 +33,13 @@ def on_command(cli_args):
             name, jql = get_query(cli_arg)
             data = search_issues(jql)
             issues = JiraIssues(data['issues'])
+            stored_data_set = get_stored_core_data_for_query(cli_arg)
+            # TODO: compare stored and incoming
             write_issues(name, issues)
-            if len(issues) > 0:
-                print(issues_details(issues))
+            print(issues_details(issues).strip())
     elif command == 'c':
         issue = get_jira_issue(cli_args[1])
-        print(issue_details(issue))
+        print(issue_details(issue).strip())
 
 
 class RemsREPL(Cmd):

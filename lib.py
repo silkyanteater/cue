@@ -6,23 +6,16 @@ import toml
 import dateutil.parser
 import re
 import os
-from collections import OrderedDict
+
+from const import (
+    config_toml_file_path,
+    required_config_keys,
+    issue_display_keys,
+    display_key_len,
+)
+
 
 req = requests.models.PreparedRequest()
-
-config_toml_file_path = 'config.toml'
-
-required_config_keys = (
-    'jira_instance_url',
-    'jira_key_file',
-    'queries_definition_file',
-    'result_files_dir',
-)
-
-valid_commands = (
-    'x',
-    'c',
-)
 
 jira_instance_url = None
 jira_request_headers = None
@@ -33,7 +26,7 @@ result_files_dir = None
 def init_lib():
     get_user_config()
 
-def _get_jira_data(url, headers = None):
+def get_jira_data(url, headers = None):
     if headers is None:
         resp = requests.get(url, allow_redirects=True)
     else:
@@ -42,7 +35,7 @@ def _get_jira_data(url, headers = None):
 
 def get_jira_issue(jira_issue):
     url = urllib.parse.urljoin(jira_instance_url, f'/rest/api/2/issue/{jira_issue}')
-    return JiraIssue(_get_jira_data(url, jira_request_headers))
+    return JiraIssue(get_jira_data(url, jira_request_headers))
 
 def search_issues(jql, *, maxResults = -1, startAt = None):
     data_url = urllib.parse.urljoin(jira_instance_url, '/rest/api/2/search')
@@ -72,30 +65,53 @@ def get_user_config():
         os.mkdir(result_files_dir)
     return user_config
 
-def _get_queries():
+def get_queries():
     get_user_config()
     queries = yaml.safe_load(open(queries_definition_file).read())
     return queries
 
 def get_query(query_name):
-    queries = [(key, value) for key, value in _get_queries().items() if value['name'] == query_name]
+    queries = [(key, value) for key, value in get_queries().items() if value['name'] == query_name]
     assert len(queries) > 0, f"Command '{query_name}' not found in '{queries_definition_file}'"
     assert len(queries) <= 1, f"Duplicate command '{query_name}' found in '{queries_definition_file}'"
     return queries[0][0], queries[0][1]['jql']
 
 def issue_details(issue, *, prefix = ''):
-    return f'\n{prefix}'.join(f"{key:14} : {value}" for key, value in issue.normalise().items())
+    return f'\n{prefix}'.join(f"{display_key:{display_key_len}} : {getattr(issue, key)}" for key, display_key in issue_display_keys)
 
 def issues_details(issues):
     content = ''
     for issue in issues.to_list():
-        content += f"{issue.key()}\n    {issue_details(issue, prefix='    ')}\n"
+        content += f"{issue.key}\n    {issue_details(issue, prefix='    ')}\n"
     return content
 
 def write_issues(filename, issues):
     with open(os.path.join(result_files_dir, f"{filename}.txt"), 'w+') as txtfile:
         txtfile.write(issues_details(issues))
-        # yaml.safe_dump(issues.normalise(), yamlfile, explicit_start=True, default_style='\"', width=4096)
+
+def import_core_data_of_issue(issue_text):
+    core_data = dict()
+    lines = [line.strip() for line in issue_text.split('\n')]
+    core_data['key'] = lines[0]
+    for line in lines[1:]:
+        if len(line.strip()) == 0:
+            continue
+        display_key, value = [item.strip() for item in line.split(':', 1)]
+        key = [item[0] for item in issue_display_keys if item[1] == display_key][0]
+        core_data[key] = value
+    return core_data
+
+def import_core_data_sets(text):
+    core_data_sets = dict()
+    for issue_text in re.split(r'\n(?=\S)', text):
+        core_data = import_core_data_of_issue(issue_text)
+        core_data_sets[core_data['key']] = core_data
+    return core_data_sets
+
+def get_stored_core_data_for_query(query_name):
+    name, jql = get_query(query_name)
+    text = open(os.path.join(result_files_dir, f"{name}.txt")).read()
+    return import_core_data_sets(text)
 
 
 class ANSIColors(object):
@@ -124,65 +140,35 @@ class ANSIColors(object):
 class JiraIssue(object):
 
     def __init__(self, issue_obj):
-        self.data = issue_obj
+        self.raw_data = issue_obj
+        fields = issue_obj['fields']
+        self.data = {
+            'key': issue_obj['key'],
+            'title': fields['summary'],
+            'type': fields['issuetype']['name'],
+            'assignee': fields['assignee']['name'],
+            'status': fields['status']['name'],
+            'resolution': fields['resolution']['name'] if fields['resolution'] is not None else '',
+            'target_version': fields['customfield_13621'] or '',
+            'git_branches': re.sub(r'\s+', ' ', fields['customfield_11207'] or ''),
+            'creator': fields['creator']['name'],
+            'created': dateutil.parser.parse(fields['created']),
+            'created_str': dateutil.parser.parse(fields['created']).strftime('%m-%b-%Y'),
+            'labels': fields['labels'],
+            'labels_str': f"{', '.join(label for label in fields['labels'])}",
+            'description': re.sub(r'\s+', ' ', fields['description']),
+        }
+        self.core_data = {key: self.data[key] for key, value in issue_display_keys}
+        self.core_data['key'] = self.data['key']
+
+    def __getattr__(self, attr):
+        if attr in self.data:
+            return self.data[attr]
+        else:
+            raise KeyError(attr)
 
     def __str__(self):
-        return f"{self.key()} - {self.title()}"
-
-    def key(self):
-        return self.data['key']
-
-    def title(self):
-        return self.data['fields']['summary']
-
-    def assignee(self):
-        return self.data['fields']['assignee']['name']
-
-    def status(self):
-        return self.data['fields']['status']['name']
-
-    def resolution(self):
-        res = self.data['fields']['resolution']
-        return res['name'] if res is not None else ''
-
-    def labels(self):
-        return self.data['fields']['labels']
-
-    def labels_str(self):
-        return f"[{', '.join(label for label in self.labels())}]"
-
-    def issue_type(self):
-        return self.data['fields']['issuetype']['name']
-
-    def description(self):
-        return re.sub(r'\s+', ' ', self.data['fields']['description'])
-
-    def git_branches(self):
-        return re.sub(r'\s+', ' ', self.data['fields']['customfield_11207'] or '')
-
-    def creator(self):
-        return self.data['fields']['creator']['name']
-
-    def created(self):
-        return dateutil.parser.parse(self.data['fields']['created'])
-
-    def target_version(self):
-        return self.data['fields']['customfield_13621'] or ''
-
-    def normalise(self):
-        details = OrderedDict()
-        # details['key'] = self.key()
-        details['title'] = self.title()
-        details['type'] = self.issue_type()
-        details['assignee'] = self.assignee()
-        details['status'] = self.status()
-        details['resolution'] = self.resolution()
-        details['target version'] = self.target_version()
-        details['GIT branches'] = self.git_branches()
-        details['created'] = self.created().strftime('%m-%b-%Y')
-        details['labels'] = self.labels_str()
-        # details['description'] = self.description()
-        return details
+        return f"{self.key} - {self.title}"
 
 
 class JiraIssues(dict):
@@ -190,13 +176,10 @@ class JiraIssues(dict):
     def __init__(self, issues_list):
         for issue_obj in issues_list:
             issue = JiraIssue(issue_obj)
-            self[issue.key()] = issue
+            self[issue.key] = issue
 
     def __str__(self):
         return '\n'.join(str(issue) for issue in self.values())
 
     def to_list(self):
-        return sorted(self.values(), key=lambda issue: issue.key(), reverse=True)
-
-    def normalise(self):
-        return {issue.key(): issue.normalise() for issue in self.to_list()}
+        return sorted(self.values(), key=lambda issue: issue.key, reverse=True)
