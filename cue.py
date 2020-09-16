@@ -4,11 +4,14 @@ from cmd import Cmd
 import sys
 
 from lib import (
+    valid_commands,
     init_lib,
     get_jira_issue,
     search_issues,
-    get_command,
+    get_query,
     write_issues,
+    issues_details,
+    issue_details,
     ANSIColors,
     JiraIssues
 )
@@ -18,11 +21,20 @@ def init():
     init_lib()
 
 def on_command(cli_args):
-    command_name, jql = get_command(cli_args[0])
-    data = search_issues(jql)
-    issues = JiraIssues(data['issues'])
-    write_issues(command_name, issues)
-    print(issues)
+    command = cli_args[0]
+    assert command in valid_commands, f"Command '{command}' not found"
+    if command == 'x':
+        assert len(cli_args) >= 2, f"Query name expected after 'x'"
+        for cli_arg in cli_args[1:]:
+            name, jql = get_query(cli_arg)
+            data = search_issues(jql)
+            issues = JiraIssues(data['issues'])
+            write_issues(name, issues)
+            if len(issues) > 0:
+                print(issues_details(issues))
+    elif command == 'c':
+        issue = get_jira_issue(cli_args[1])
+        print(issue_details(issue))
 
 
 class RemsREPL(Cmd):

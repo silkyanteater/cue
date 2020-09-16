@@ -6,6 +6,7 @@ import toml
 import dateutil.parser
 import re
 import os
+from collections import OrderedDict
 
 req = requests.models.PreparedRequest()
 
@@ -16,6 +17,11 @@ required_config_keys = (
     'jira_key_file',
     'queries_definition_file',
     'result_files_dir',
+)
+
+valid_commands = (
+    'x',
+    'c',
 )
 
 jira_instance_url = None
@@ -36,7 +42,7 @@ def _get_jira_data(url, headers = None):
 
 def get_jira_issue(jira_issue):
     url = urllib.parse.urljoin(jira_instance_url, f'/rest/api/2/issue/{jira_issue}')
-    return _get_jira_data(url, jira_request_headers)
+    return JiraIssue(_get_jira_data(url, jira_request_headers))
 
 def search_issues(jql, *, maxResults = -1, startAt = None):
     data_url = urllib.parse.urljoin(jira_instance_url, '/rest/api/2/search')
@@ -71,15 +77,25 @@ def _get_queries():
     queries = yaml.safe_load(open(queries_definition_file).read())
     return queries
 
-def get_command(command):
-    commands = [(key, value) for key, value in _get_queries().items() if value['command'] == command]
-    assert len(commands) > 0, f"Command '{command}' not found in '{queries_definition_file}'"
-    assert len(commands) <= 1, f"Duplicate command '{command}' found in '{queries_definition_file}'"
-    return commands[0][0], commands[0][1]['jql']
+def get_query(query_name):
+    queries = [(key, value) for key, value in _get_queries().items() if value['name'] == query_name]
+    assert len(queries) > 0, f"Command '{query_name}' not found in '{queries_definition_file}'"
+    assert len(queries) <= 1, f"Duplicate command '{query_name}' found in '{queries_definition_file}'"
+    return queries[0][0], queries[0][1]['jql']
+
+def issue_details(issue, *, prefix = ''):
+    return f'\n{prefix}'.join(f"{key:14} : {value}" for key, value in issue.normalise().items())
+
+def issues_details(issues):
+    content = ''
+    for issue in issues.to_list():
+        content += f"{issue.key()}\n    {issue_details(issue, prefix='    ')}\n"
+    return content
 
 def write_issues(filename, issues):
-    with open(os.path.join(result_files_dir, f"{filename}.yaml"), 'w+') as yamlfile:
-        yaml.safe_dump(issues.normalise(), yamlfile, explicit_start=True, default_style='\"', width=4096)
+    with open(os.path.join(result_files_dir, f"{filename}.txt"), 'w+') as txtfile:
+        txtfile.write(issues_details(issues))
+        # yaml.safe_dump(issues.normalise(), yamlfile, explicit_start=True, default_style='\"', width=4096)
 
 
 class ANSIColors(object):
@@ -108,57 +124,65 @@ class ANSIColors(object):
 class JiraIssue(object):
 
     def __init__(self, issue_obj):
-        self.issue_obj = issue_obj
+        self.data = issue_obj
 
     def __str__(self):
         return f"{self.key()} - {self.title()}"
 
     def key(self):
-        return self.issue_obj['key']
+        return self.data['key']
 
     def title(self):
-        return self.issue_obj['fields']['summary']
+        return self.data['fields']['summary']
 
     def assignee(self):
-        return self.issue_obj['fields']['assignee']['name']
+        return self.data['fields']['assignee']['name']
 
     def status(self):
-        return self.issue_obj['fields']['status']['name']
+        return self.data['fields']['status']['name']
 
     def resolution(self):
-        return self.issue_obj['fields']['resolution']
+        res = self.data['fields']['resolution']
+        return res['name'] if res is not None else ''
 
     def labels(self):
-        return self.issue_obj['fields']['labels']
+        return self.data['fields']['labels']
+
+    def labels_str(self):
+        return f"[{', '.join(label for label in self.labels())}]"
 
     def issue_type(self):
-        return self.issue_obj['fields']['issuetype']['name']
+        return self.data['fields']['issuetype']['name']
 
     def description(self):
-        return re.sub(r'\s+', ' ', self.issue_obj['fields']['description'])
+        return re.sub(r'\s+', ' ', self.data['fields']['description'])
 
     def git_branches(self):
-        return re.sub(r'\s+', ' ', self.issue_obj['fields']['customfield_11207'])
+        return re.sub(r'\s+', ' ', self.data['fields']['customfield_11207'] or '')
 
     def creator(self):
-        return self.issue_obj['fields']['creator']['name']
+        return self.data['fields']['creator']['name']
 
     def created(self):
-        return dateutil.parser.parse(self.issue_obj['fields']['created'])
+        return dateutil.parser.parse(self.data['fields']['created'])
+
+    def target_version(self):
+        return self.data['fields']['customfield_13621'] or ''
 
     def normalise(self):
-        return {
-            'key': self.key(),
-            'title': self.title(),
-            'assignee': self.assignee(),
-            'status': self.status(),
-            'resolution': self.resolution(),
-            'labels': self.labels(),
-            'type': self.issue_type(),
-            'description': self.description(),
-            'GIT branches': self.git_branches(),
-            'created': self.created().strftime('%m-%b-%Y'),
-        }
+        details = OrderedDict()
+        # details['key'] = self.key()
+        details['title'] = self.title()
+        details['type'] = self.issue_type()
+        details['assignee'] = self.assignee()
+        details['status'] = self.status()
+        details['resolution'] = self.resolution()
+        details['target version'] = self.target_version()
+        details['GIT branches'] = self.git_branches()
+        details['created'] = self.created().strftime('%m-%b-%Y')
+        details['labels'] = self.labels_str()
+        # details['description'] = self.description()
+        return details
 
 
 class JiraIssues(dict):
