@@ -12,6 +12,9 @@ from lib import (
     issues_details,
     issue_details,
     get_stored_core_data_for_query,
+    get_updated_issues,
+    update_queue,
+    print_queue,
     ANSIColors,
     JiraIssues
 )
@@ -29,17 +32,20 @@ def on_command(cli_args):
     assert command in valid_commands, f"Command '{command}' not found"
     if command == 'x':
         assert len(cli_args) >= 2, f"Query name expected after 'x'"
-        for cli_arg in cli_args[1:]:
-            name, jql = get_query(cli_arg)
+        for query_name in cli_args[1:]:
+            query_title, jql = get_query(query_name)
             data = search_issues(jql)
             issues = JiraIssues(data['issues'])
-            stored_data_set = get_stored_core_data_for_query(cli_arg)
-            # TODO: compare stored and incoming
-            write_issues(name, issues)
-            print(issues_details(issues).strip())
+            stored_data_set = get_stored_core_data_for_query(query_name)
+            updated_issues = get_updated_issues(issues, stored_data_set)
+            update_queue(query_title, updated_issues)
+            write_issues(query_title, issues)
+            print(issues_details(issues))
     elif command == 'c':
         issue = get_jira_issue(cli_args[1])
-        print(issue_details(issue).strip())
+        print(issue_details(issue))
+    elif command == 'q':
+        print_queue()
 
 
 class RemsREPL(Cmd):

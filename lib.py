@@ -8,10 +8,11 @@ import re
 import os
 
 from const import (
-    config_toml_file_path,
+    config_toml_file_name,
     required_config_keys,
     issue_display_keys,
     display_key_len,
+    queue_file_name,
 )
 
 
@@ -51,9 +52,9 @@ def search_issues(jql, *, maxResults = -1, startAt = None):
 
 def get_user_config():
     global jira_instance_url, jira_request_headers, queries_definition_file, result_files_dir
-    user_config = toml.loads(open(config_toml_file_path).read())
+    user_config = toml.loads(open(config_toml_file_name).read())
     for required_key in required_config_keys:
-        assert required_key in user_config, f"Key missing from {config_toml_file_path}: {required_key}"
+        assert required_key in user_config, f"Key missing from {config_toml_file_name}: {required_key}"
     jira_instance_url = user_config["jira_instance_url"]
     jira_request_headers = {
         'Authorization': f'Basic {open(user_config["jira_key_file"]).read().strip()}',
@@ -109,9 +110,35 @@ def import_core_data_sets(text):
     return core_data_sets
 
 def get_stored_core_data_for_query(query_name):
-    name, jql = get_query(query_name)
-    text = open(os.path.join(result_files_dir, f"{name}.txt")).read()
+    query_title, jql = get_query(query_name)
+    query_file_path = os.path.join(result_files_dir, f"{query_title}.txt")
+    text = ''
+    if os.path.isfile(query_file_path):
+        text = open(query_file_path).read()
     return import_core_data_sets(text)
+
+def get_updated_issues(issues, stored_data_set):
+    updated_issues = dict()
+    for key, issue in issues.items():
+        if key not in stored_data_set or stored_data_set[key] != issue.core_data:
+            updated_issues[key] = issue
+    return updated_issues
+
+def update_queue(query_title, updated_issues):
+    queue_items = [f"{query_title} -- {str(issue)}" for key, issue in updated_issues.items()]
+    if len(queue_items) > 0:
+        with open(os.path.join(result_files_dir, queue_file_name), 'a+') as queuefile:
+            queuefile.write('\n'.join(queue_items) + '\n')
+
+def print_queue():
+    queue_file_path = os.path.join(result_files_dir, queue_file_name)
+    queue_content = ''
+    if os.path.isfile(queue_file_path):
+        queue_content = open(queue_file_path).read().strip()
+    if len(queue_content) > 0:
+        print(queue_content)
+    else:
+        print("Queue is empty")
 
 
 class ANSIColors(object):
@@ -143,20 +170,20 @@ class JiraIssue(object):
         self.raw_data = issue_obj
         fields = issue_obj['fields']
         self.data = {
-            'key': issue_obj['key'],
-            'title': fields['summary'],
-            'type': fields['issuetype']['name'],
-            'assignee': fields['assignee']['name'],
-            'status': fields['status']['name'],
-            'resolution': fields['resolution']['name'] if fields['resolution'] is not None else '',
-            'target_version': fields['customfield_13621'] or '',
-            'git_branches': re.sub(r'\s+', ' ', fields['customfield_11207'] or ''),
-            'creator': fields['creator']['name'],
+            'key': issue_obj['key'].strip(),
+            'title': fields['summary'].strip(),
+            'type': fields['issuetype']['name'].strip(),
+            'assignee': fields['assignee']['name'].strip(),
+            'status': fields['status']['name'].strip(),
+            'resolution': fields['resolution']['name'].strip() if fields['resolution'] is not None else '',
+            'target_version': (fields['customfield_13621'] or '').strip(),
+            'git_branches': re.sub(r'\s+', ' ', fields['customfield_11207'] or '').strip(),
+            'creator': fields['creator']['name'].strip(),
             'created': dateutil.parser.parse(fields['created']),
             'created_str': dateutil.parser.parse(fields['created']).strftime('%m-%b-%Y'),
             'labels': fields['labels'],
-            'labels_str': f"{', '.join(label for label in fields['labels'])}",
-            'description': re.sub(r'\s+', ' ', fields['description']),
+            'labels_str': f"{', '.join(label.strip() for label in fields['labels'])}",
+            'description': re.sub(r'\s+', ' ', fields['description'].strip()),
         }
         self.core_data = {key: self.data[key] for key, value in issue_display_keys}
         self.core_data['key'] = self.data['key']

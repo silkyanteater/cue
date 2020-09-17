@@ -1,4 +1,4 @@
-config_toml_file_path = 'config.toml'
+config_toml_file_name = 'config.toml'
 
 required_config_keys = (
     'jira_instance_url',
@@ -10,6 +10,7 @@ required_config_keys = (
 valid_commands = (
     'x',
     'c',
+    'q',
 )
 
 issue_display_keys = (
@@ -24,3 +25,5 @@ issue_display_keys = (
     ('labels_str', 'Labels'),
 )
 display_key_len = max(len(item[1]) for item in issue_display_keys)
+
+queue_file_name = 'queue.txt'
