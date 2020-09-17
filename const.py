@@ -8,6 +8,7 @@ required_config_keys = (
 )
 
 valid_commands = (
+    'h', '-h', '?', '-?', '-help', '--help',
     'x',
     'c',
     'q',

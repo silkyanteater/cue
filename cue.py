@@ -26,13 +26,26 @@ from const import (
 )
 
 
+help_text = ''' -- Jira integration CLI --
+cue x <command from query definition>
+   run query, update content in results, update queue
+cue c <issue reference>
+   see issue details
+cue ls
+   see queue
+cue q
+   step through queue and remove items when done'''
+
+
 def init():
     init_lib()
 
 def on_command(cli_args):
     command = cli_args[0]
     assert command in valid_commands, f"Command '{command}' not found"
-    if command == 'x':
+    if command in ('h', '-h', '?', '-?', '-help', '--help'):
+        sys.stdout.write(help_text)
+    elif command == 'x':
         assert len(cli_args) >= 2, f"Query name expected after 'x'"
         for query_name in cli_args[1:]:
             query_title, jql = get_query(query_name)
@@ -47,16 +60,16 @@ def on_command(cli_args):
         assert len(cli_args) > 1, f"Issue reference is missing"
         issue = get_jira_issue(normalise_issue_ref(cli_args[1]))
         sys.stdout.write(issue_details(issue))
-    elif command == 'q':
-        step_through_queue()
     elif command == 'ls':
         print_queue()
+    elif command == 'q':
+        step_through_queue()
 
 
 class RemsREPL(Cmd):
 
     def do_help(self, inp):
-        print('Jira integration CLI')
+        sys.stdout.write(help_text)
 
     def do_EOF(self, inp):
         print(f'^D')
