@@ -11,6 +11,7 @@ valid_commands = (
     'x',
     'c',
     'q',
+    'ls',
 )
 
 issue_display_keys = (

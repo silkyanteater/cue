@@ -6,6 +6,7 @@ import toml
 import dateutil.parser
 import re
 import os
+import sys
 
 from const import (
     config_toml_file_name,
@@ -36,7 +37,10 @@ def get_jira_data(url, headers = None):
 
 def get_jira_issue(jira_issue):
     url = urllib.parse.urljoin(jira_instance_url, f'/rest/api/2/issue/{jira_issue}')
-    return JiraIssue(get_jira_data(url, jira_request_headers))
+    response_json = get_jira_data(url, jira_request_headers)
+    if 'errorMessages' in response_json:
+        raise AssertionError(f"Error: {', '.join(response_json.get('errorMessages', ('unspecified', )))}")
+    return JiraIssue(response_json)
 
 def search_issues(jql, *, maxResults = -1, startAt = None):
     data_url = urllib.parse.urljoin(jira_instance_url, '/rest/api/2/search')
@@ -124,21 +128,52 @@ def get_updated_issues(issues, stored_data_set):
             updated_issues[key] = issue
     return updated_issues
 
+def write_queue(queue_lines, *, append = False):
+    file_mode = 'a+' if append is True else 'w+'
+    if file_mode == 'w+' or len(queue_lines) > 0:
+        with open(os.path.join(result_files_dir, queue_file_name), file_mode) as queuefile:
+            queuefile.write('\n'.join(queue_lines) + '\n')
+
 def update_queue(query_title, updated_issues):
     queue_items = [f"{query_title} -- {str(issue)}" for key, issue in updated_issues.items()]
-    if len(queue_items) > 0:
-        with open(os.path.join(result_files_dir, queue_file_name), 'a+') as queuefile:
-            queuefile.write('\n'.join(queue_items) + '\n')
+    write_queue(queue_items, append=True)
 
-def print_queue():
+def load_queue():
     queue_file_path = os.path.join(result_files_dir, queue_file_name)
     queue_content = ''
     if os.path.isfile(queue_file_path):
         queue_content = open(queue_file_path).read().strip()
-    if len(queue_content) > 0:
-        print(queue_content)
+    return queue_content
+
+def step_through_queue():
+    queue_lines = [line.strip() for line in load_queue().split('\n') if len(line.strip()) > 0]
+    if len(queue_lines) > 0:
+        remaining_lines = list()
+        resp = None
+        for line in queue_lines:
+            if resp != 'all skipped':
+                resp = None
+            while resp not in ('', 's', 'd', 'q', 'all skipped'):
+                resp = input(f"{line}  |  S(kip) d(one) q(uit) > ").lower()
+            if resp in ('', 's', 'q', 'all skipped'):
+                remaining_lines.append(line)
+            if resp == 'q':
+                resp = 'all skipped'
+            elif resp == 'd':
+                pass
+        write_queue(remaining_lines)
     else:
-        print("Queue is empty")
+        sys.stdout.write("Queue is empty")
+
+def print_queue():
+    queue_content = load_queue()
+    if len(queue_content) > 0:
+        sys.stdout.write(queue_content)
+    else:
+        sys.stdout.write("Queue is empty")
+
+def normalise_issue_ref(issue_ref):
+    return re.sub(r"([a-zA-z])(?=\d)", r"\1-", issue_ref).upper()
 
 
 class ANSIColors(object):
@@ -173,7 +208,7 @@ class JiraIssue(object):
             'key': issue_obj['key'].strip(),
             'title': fields['summary'].strip(),
             'type': fields['issuetype']['name'].strip(),
-            'assignee': fields['assignee']['name'].strip(),
+            'assignee': fields['assignee']['name'].strip() if fields['assignee'] is not None else '',
             'status': fields['status']['name'].strip(),
             'resolution': fields['resolution']['name'].strip() if fields['resolution'] is not None else '',
             'target_version': (fields['customfield_13621'] or '').strip(),

@@ -14,7 +14,9 @@ from lib import (
     get_stored_core_data_for_query,
     get_updated_issues,
     update_queue,
+    step_through_queue,
     print_queue,
+    normalise_issue_ref,
     ANSIColors,
     JiraIssues
 )
@@ -40,11 +42,14 @@ def on_command(cli_args):
             updated_issues = get_updated_issues(issues, stored_data_set)
             update_queue(query_title, updated_issues)
             write_issues(query_title, issues)
-            print(issues_details(issues))
+            sys.stdout.write(issues_details(issues))
     elif command == 'c':
-        issue = get_jira_issue(cli_args[1])
-        print(issue_details(issue))
+        assert len(cli_args) > 1, f"Issue reference is missing"
+        issue = get_jira_issue(normalise_issue_ref(cli_args[1]))
+        sys.stdout.write(issue_details(issue))
     elif command == 'q':
+        step_through_queue()
+    elif command == 'ls':
         print_queue()
 
 
@@ -60,6 +65,7 @@ class RemsREPL(Cmd):
     def default(self, inp):
         try:
             on_command(shlex.split(inp))
+            print()
         except AssertionError as ae:
             print(f'{ae}')
         except:
@@ -75,7 +81,7 @@ if __name__ == '__main__':
         exit()
     if len(sys.argv) == 1:
         remsrepl = RemsREPL()
-        remsrepl.prompt = f"{ANSIColors.l_blue}cue·{ANSIColors.reset} "
+        remsrepl.prompt = f"{ANSIColors.l_blue}cue·{ANSIColors.reset}"
         nothing_worse_than_keyboardinterrupt = True
         while(nothing_worse_than_keyboardinterrupt):
             nothing_worse_than_keyboardinterrupt = False
@@ -87,5 +93,6 @@ if __name__ == '__main__':
     else:
         try:
             on_command(sys.argv[1:])
+            print()
         except AssertionError as ae:
             print(f'{ae}')
