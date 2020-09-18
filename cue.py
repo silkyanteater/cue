@@ -45,6 +45,8 @@ def on_command(cli_args):
     assert command in valid_commands, f"Command '{command}' not found"
     if command in ('h', '-h', '?', '-?', '-help', '--help'):
         sys.stdout.write(help_text)
+    elif command in ('quit', 'exit'):
+        raise EOFError()
     elif command == 'x':
         assert len(cli_args) >= 2, f"Query name expected after 'x'"
         for query_name in cli_args[1:]:
@@ -68,11 +70,19 @@ def on_command(cli_args):
 
 class RemsREPL(Cmd):
 
+    def cmdloop(self, intro=None):
+        while True:
+            try:
+                super(RemsREPL, self).cmdloop(intro="")
+                break
+            except KeyboardInterrupt:
+                print("^C")
+
     def do_help(self, inp):
         sys.stdout.write(help_text)
 
     def do_EOF(self, inp):
-        print(f'^D')
+        print()
         return True
 
     def default(self, inp):
@@ -81,6 +91,11 @@ class RemsREPL(Cmd):
             print()
         except AssertionError as ae:
             print(f'{ae}')
+        except EOFError as ee:
+            sys.stdout.write(f'{ee}')
+            return True
+        except KeyboardInterrupt:
+            print(f'^C')
         except:
             traceback.print_exc()
         return False

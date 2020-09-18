@@ -9,6 +9,7 @@ required_config_keys = (
 
 valid_commands = (
     'h', '-h', '?', '-?', '-help', '--help',
+    'quit', 'exit',
     'x',
     'c',
     'q',
@@ -29,3 +30,5 @@ issue_display_keys = (
 display_key_len = max(len(item[1]) for item in issue_display_keys)
 
 queue_file_name = 'queue.txt'
+
+request_timeout_seconds = 120

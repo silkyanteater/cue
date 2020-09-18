@@ -14,6 +14,7 @@ from const import (
     issue_display_keys,
     display_key_len,
     queue_file_name,
+    request_timeout_seconds,
 )
 
 
@@ -29,39 +30,46 @@ def init_lib():
     get_user_config()
 
 def get_jira_data(url, headers = None):
-    if headers is None:
-        resp = requests.get(url, allow_redirects=True)
-    else:
-        resp = requests.get(url, headers=headers, allow_redirects=True)
-    return json.loads(resp.content)
+    try:
+        if headers is None:
+            resp = requests.get(url, allow_redirects=True, timeout=request_timeout_seconds)
+        else:
+            resp = requests.get(url, headers=headers, allow_redirects=True, timeout=request_timeout_seconds)
+    except Exception as e:
+        raise AssertionError(str(e))
+    except KeyboardInterrupt:
+        raise AssertionError()
+    response_json = json.loads(resp.content)
+    if 'errorMessages' in response_json:
+        raise AssertionError(f"Error: {', '.join(response_json.get('errorMessages', ('unspecified', )))}")
+    return response_json
 
 def get_jira_issue(jira_issue):
     url = urllib.parse.urljoin(jira_instance_url, f'/rest/api/2/issue/{jira_issue}')
-    response_json = get_jira_data(url, jira_request_headers)
-    if 'errorMessages' in response_json:
-        raise AssertionError(f"Error: {', '.join(response_json.get('errorMessages', ('unspecified', )))}")
-    return JiraIssue(response_json)
+    return JiraIssue(get_jira_data(url, jira_request_headers))
 
 def search_issues(jql, *, maxResults = -1, startAt = None):
-    data_url = urllib.parse.urljoin(jira_instance_url, '/rest/api/2/search')
+    url = urllib.parse.urljoin(jira_instance_url, '/rest/api/2/search')
     queryparams = {
         'jql': jql,
         'maxResults': maxResults,
     }
     if startAt is not None:
         queryparams['startAt'] = startAt
-    req.prepare_url(data_url, queryparams)
-    resp = requests.get(req.url, headers=jira_request_headers, allow_redirects=True)
-    return json.loads(resp.content)
+    req.prepare_url(url, queryparams)
+    return get_jira_data(req.url, headers=jira_request_headers)
 
 def get_user_config():
     global jira_instance_url, jira_request_headers, queries_definition_file, result_files_dir
+    assert os.path.isfile(config_toml_file_name), f"Config file '{config_toml_file_name}' not found"
     user_config = toml.loads(open(config_toml_file_name).read())
     for required_key in required_config_keys:
         assert required_key in user_config, f"Key missing from {config_toml_file_name}: {required_key}"
     jira_instance_url = user_config["jira_instance_url"]
+    key_file_path = user_config["jira_key_file"]
+    assert os.path.isfile(key_file_path), f"Key file '{key_file_path}' not found"
     jira_request_headers = {
-        'Authorization': f'Basic {open(user_config["jira_key_file"]).read().strip()}',
+        'Authorization': f'Basic {open(key_file_path).read().strip()}',
         'Content-Type': 'application/json',
     }
     queries_definition_file = user_config["queries_definition_file"]
@@ -205,20 +213,20 @@ class JiraIssue(object):
         self.raw_data = issue_obj
         fields = issue_obj['fields']
         self.data = {
-            'key': issue_obj['key'].strip(),
-            'title': fields['summary'].strip(),
-            'type': fields['issuetype']['name'].strip(),
-            'assignee': fields['assignee']['name'].strip() if fields['assignee'] is not None else '',
-            'status': fields['status']['name'].strip(),
-            'resolution': fields['resolution']['name'].strip() if fields['resolution'] is not None else '',
+            'key': (issue_obj['key'] or '').strip(),
+            'title': (fields['summary'] or '').strip(),
+            'type': (fields['issuetype']['name'] or '').strip(),
+            'assignee': (fields['assignee']['name'] or '').strip() if fields['assignee'] is not None else '',
+            'status': (fields['status']['name'] or '').strip(),
+            'resolution': (fields['resolution']['name'] or '').strip() if fields['resolution'] is not None else '',
             'target_version': (fields['customfield_13621'] or '').strip(),
             'git_branches': re.sub(r'\s+', ' ', fields['customfield_11207'] or '').strip(),
-            'creator': fields['creator']['name'].strip(),
+            'creator': (fields['creator']['name'] or '').strip(),
             'created': dateutil.parser.parse(fields['created']),
             'created_str': dateutil.parser.parse(fields['created']).strftime('%m-%b-%Y'),
             'labels': fields['labels'],
             'labels_str': f"{', '.join(label.strip() for label in fields['labels'])}",
-            'description': re.sub(r'\s+', ' ', fields['description'].strip()),
+            'description': re.sub(r'\s+', ' ', (fields['description'] or '').strip()),
         }
         self.core_data = {key: self.data[key] for key, value in issue_display_keys}
         self.core_data['key'] = self.data['key']
