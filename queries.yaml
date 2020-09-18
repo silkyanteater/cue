@@ -1,6 +1,9 @@
 merge to master:
   name: mtm
   jql: project = UI and status = "Merge To Master DOING" and "Epic Link" not in (UI-771, UI-1010)
+targeting 4.30 FE:
+  name: "430FE"
+  jql: project not in (QAT) AND "Target Version/s" in (4_30_FE)
 targeting 4.31:
-  name: "4.31"
+  name: "431"
   jql: project in ("Trading UI Team") AND "Target Version/s" in (4_31)

@@ -24,3 +24,7 @@ if __name__ == '__main__':
 		queue_text = open(queue_file_path).read().strip()
 		if len(queue_text) > 0:
 			play_sound('finealert.wav')
+		else:
+			print("Queue is empty")
+	else:
+		print("Queue is empty")

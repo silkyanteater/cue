@@ -9,8 +9,6 @@ from lib import (
     search_issues,
     get_query,
     write_issues,
-    issues_details,
-    issue_details,
     get_stored_core_data_for_query,
     get_updated_issues,
     update_queue,
@@ -43,13 +41,16 @@ def init():
 def on_command(cli_args):
     command = cli_args[0]
     assert command in valid_commands, f"Command '{command}' not found"
+    params = [arg for arg in cli_args[1:] if not arg.startswith('-')]
+    flags = [arg for arg in cli_args[1:] if arg.startswith('-')]
     if command in ('h', '-h', '?', '-?', '-help', '--help'):
         sys.stdout.write(help_text)
     elif command in ('quit', 'exit'):
         raise EOFError()
     elif command == 'x':
-        assert len(cli_args) >= 2, f"Query name expected after 'x'"
-        for query_name in cli_args[1:]:
+        print_short_format = len({'-s', '--short'}.intersection(set(flags))) > 0
+        assert len(params) >= 1, f"Query name expected after 'x'"
+        for query_name in params:
             query_title, jql = get_query(query_name)
             data = search_issues(jql)
             issues = JiraIssues(data['issues'])
@@ -57,11 +58,17 @@ def on_command(cli_args):
             updated_issues = get_updated_issues(issues, stored_data_set)
             update_queue(query_title, updated_issues)
             write_issues(query_title, issues)
-            sys.stdout.write(issues_details(issues))
+            if len(issues) > 0:
+                if print_short_format:
+                    print(issues)
+                else:
+                    sys.stdout.write(issues.details())
+            else:
+                print(f"{query_title}: no issues found")
     elif command == 'c':
-        assert len(cli_args) > 1, f"Issue reference is missing"
+        assert len(params) >= 1, f"Issue reference is missing"
         issue = get_jira_issue(normalise_issue_ref(cli_args[1]))
-        sys.stdout.write(issue_details(issue))
+        print(issue.details())
     elif command == 'ls':
         print_queue()
     elif command == 'q':
@@ -121,6 +128,5 @@ if __name__ == '__main__':
     else:
         try:
             on_command(sys.argv[1:])
-            print()
         except AssertionError as ae:
             print(f'{ae}')

@@ -89,18 +89,9 @@ def get_query(query_name):
     assert len(queries) <= 1, f"Duplicate command '{query_name}' found in '{queries_definition_file}'"
     return queries[0][0], queries[0][1]['jql']
 
-def issue_details(issue, *, prefix = ''):
-    return f'\n{prefix}'.join(f"{display_key:{display_key_len}} : {getattr(issue, key)}" for key, display_key in issue_display_keys)
-
-def issues_details(issues):
-    content = ''
-    for issue in issues.to_list():
-        content += f"{issue.key}\n    {issue_details(issue, prefix='    ')}\n"
-    return content
-
 def write_issues(filename, issues):
     with open(os.path.join(result_files_dir, f"{filename}.txt"), 'w+') as txtfile:
-        txtfile.write(issues_details(issues))
+        txtfile.write(issues.details())
 
 def import_core_data_of_issue(issue_text):
     core_data = dict()
@@ -110,8 +101,9 @@ def import_core_data_of_issue(issue_text):
         if len(line.strip()) == 0:
             continue
         display_key, value = [item.strip() for item in line.split(':', 1)]
-        key = [item[0] for item in issue_display_keys if item[1] == display_key][0]
-        core_data[key] = value
+        keys = [item[0] for item in issue_display_keys if item[1] == display_key]
+        assert len(keys) > 0, f"Field '{display_key}' not recognised for issue {core_data['key']}"
+        core_data[keys[0]] = value
     return core_data
 
 def import_core_data_sets(text):
@@ -140,7 +132,10 @@ def write_queue(queue_lines, *, append = False):
     file_mode = 'a+' if append is True else 'w+'
     if file_mode == 'w+' or len(queue_lines) > 0:
         with open(os.path.join(result_files_dir, queue_file_name), file_mode) as queuefile:
-            queuefile.write('\n'.join(queue_lines) + '\n')
+            if len(queue_lines) > 0:
+                queuefile.write('\n'.join(queue_lines) + '\n')
+            else:
+                queuefile.write('')
 
 def update_queue(query_title, updated_issues):
     queue_items = [f"{query_title} -- {str(issue)}" for key, issue in updated_issues.items()]
@@ -171,14 +166,14 @@ def step_through_queue():
                 pass
         write_queue(remaining_lines)
     else:
-        sys.stdout.write("Queue is empty")
+        print("Queue is empty")
 
 def print_queue():
     queue_content = load_queue()
     if len(queue_content) > 0:
-        sys.stdout.write(queue_content)
+        print(queue_content)
     else:
-        sys.stdout.write("Queue is empty")
+        print("Queue is empty")
 
 def normalise_issue_ref(issue_ref):
     return re.sub(r"([a-zA-z])(?=\d)", r"\1-", issue_ref).upper()
@@ -224,7 +219,7 @@ class JiraIssue(object):
             'creator': (fields['creator']['name'] or '').strip(),
             'created': dateutil.parser.parse(fields['created']),
             'created_str': dateutil.parser.parse(fields['created']).strftime('%m-%b-%Y'),
-            'labels': fields['labels'],
+            'labels': sorted(fields['labels']),
             'labels_str': f"{', '.join(label.strip() for label in fields['labels'])}",
             'description': re.sub(r'\s+', ' ', (fields['description'] or '').strip()),
         }
@@ -240,6 +235,9 @@ class JiraIssue(object):
     def __str__(self):
         return f"{self.key} - {self.title}"
 
+    def details(self, *, prefix = ''):
+        return f'\n{prefix}'.join(f"{display_key:{display_key_len}} : {getattr(self, key)}" for key, display_key in issue_display_keys)
+
 
 class JiraIssues(dict):
 
@@ -253,3 +251,6 @@ class JiraIssues(dict):
 
     def to_list(self):
         return sorted(self.values(), key=lambda issue: issue.key, reverse=True)
+
+    def details(self):
+        return ''.join(f"{issue.key}\n    {issue.details(prefix='    ')}\n" for issue in self.to_list())
