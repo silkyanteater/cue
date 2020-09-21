@@ -15,7 +15,8 @@ from lib import (
     get_all_query_names,
     get_active_query_names,
     write_issues,
-    get_stored_core_data_for_query,
+    get_stored_issues_for_query,
+    load_all_issues_cache,
     get_updated_issues,
     update_queue,
     step_through_queue,
@@ -24,6 +25,7 @@ from lib import (
     show_help,
     get_format_option,
     sound_alert_if_queue_not_empty,
+    JiraIssues,
 )
 
 from const import (
@@ -50,16 +52,14 @@ def execute_command(quickparse):
     else:
         query_names = incoming_query_names
     for query_name in query_names:
-        stored_data_set = get_stored_core_data_for_query(query_name)
-        if len(stored_data_set) == 0 or '--refresh' in quickparse.options:
+        stored_issues = get_stored_issues_for_query(query_name)
+        if len(stored_issues) == 0 or '--refresh' in quickparse.options:
             query_title, jql = get_query(query_name)
-            data = search_issues(jql)
-            issues = JiraIssues(data['issues'])
-            updated_issues = get_updated_issues(issues, stored_data_set)
-            update_queue(query_title, updated_issues)
+            issues = search_issues(jql)
+            update_queue(query_title, get_updated_issues(issues, stored_issues))
             write_issues(query_title, issues)
         else:
-            issues = JiraIssues(stored_data_set)
+            issues = stored_issues
         if len(issues) > 0:
             print(issues.details(format=get_format_option(quickparse)))
         else:
@@ -68,9 +68,17 @@ def execute_command(quickparse):
 def show_issue(quickparse):
     assert len(quickparse.parameters) >= 1, f"Issue reference is missing"
     jira_issue_refs = [normalise_issue_ref(ref) for ref in quickparse.parameters]
-    data = get_jira_issues(jira_issue_refs)
-    issues = JiraIssues(data['issues'])
+    if '--refresh' in quickparse.options:
+        issues = get_jira_issues(jira_issue_refs)
+    else:
+        cache_issues = load_all_issues_cache().filter(issue_ref for issue_ref in jira_issue_refs)
+        new_issue_refs = [issue_ref for issue_ref in jira_issue_refs if issue_ref not in cache_issues]
+        new_issues = JiraIssues()
+        if len(new_issue_refs) > 0:
+            new_issues = get_jira_issues(jira_issue_refs)
+        issues = JiraIssues().update(cache_issues).update(new_issues)
     print(issues.details(format=get_format_option(quickparse)))
+
 
 commands_config = {
     ('h', 'help'): show_help,

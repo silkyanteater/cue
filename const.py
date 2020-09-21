@@ -6,6 +6,7 @@ required_config_keys = (
     'queries_definition_file',
     'result_files_dir',
     'alert_sound_file',
+    'all_issues_file',
 )
 
 issue_display_keys = (
@@ -13,11 +14,14 @@ issue_display_keys = (
     ('type', 'Type'),
     ('assignee', 'Assignee'),
     ('status', 'Status'),
+    ('epic', 'Epic'),
     ('resolution', 'Resolution'),
     ('target_version', 'Target version'),
     ('git_branches', 'Git branches'),
     ('created_str', 'Created'),
     ('labels_str', 'Labels'),
+    ('time_spent_str', 'Time spent'),
+    ('estimate_str', 'Estimate'),
 )
 display_key_len = max(len(item[1]) for item in issue_display_keys)
 

@@ -27,6 +27,7 @@ jira_request_headers = None
 queries_definition_file = None
 result_files_dir = None
 alert_sound_file = None
+all_issues_file = None
 
 
 class ANSIColors(object):
@@ -70,9 +71,21 @@ class JiraIssue(object):
                 'creator': (fields['creator']['name'] or '').strip(),
                 'created': dateutil.parser.parse(fields['created']),
                 'created_str': dateutil.parser.parse(fields['created']).strftime('%m-%b-%Y'),
+                'updated': dateutil.parser.parse(fields['updated']),
+                'updated_str': dateutil.parser.parse(fields['updated']).strftime('%m-%b-%Y'),
                 'labels': sorted(fields['labels']),
                 'labels_str': f"{', '.join(label.strip() for label in fields['labels'])}",
                 'description': re.sub(r'\s+', ' ', (fields['description'] or '').strip()),
+                'time_spent': fields['timespent'],
+                'time_spent_str': f"{fields['timespent'] // 3600}:{(fields['timespent'] % 3600) // 60:02}" if fields['timespent'] is not None else "-",
+                'estimate': fields['timeestimate'],
+                'estimate_str': f"{fields['timeestimate'] // 3600}:{(fields['timeestimate'] % 3600) // 60:02}" if fields['timeestimate'] is not None else "-",
+                'original_estimate': fields['timeoriginalestimate'],
+                'original_estimate_str': f"{fields['timeoriginalestimate'] // 3600}:{(fields['timeoriginalestimate'] % 3600) // 60:02}" if fields['timeoriginalestimate'] is not None else "-",
+                'progress': fields['progress'],
+                'project': (fields['customfield_13613'] or '').strip(),
+                'fr': (fields['customfield_13611'] or '').strip(),
+                'epic': (fields['customfield_10100'] or '').strip(),
             }
             self.core_data = {key: self.data[key] for key, value in issue_display_keys}
             self.core_data['key'] = self.data['key']
@@ -101,7 +114,10 @@ class JiraIssue(object):
 
 class JiraIssues(dict):
 
-    def __init__(self, issues_data):
+    def __init__(self, issues_data = None):
+        super().__init__()
+        if issues_data is None:
+            return
         assert isinstance(issues_data, (list, dict)), f"Unrecognised issues data: {issues_data}"
         if isinstance(issues_data, list):
             for issue_obj in issues_data:
@@ -122,9 +138,21 @@ class JiraIssues(dict):
 
     def details(self, *, format = None):
         if format == 'long':
-            return ''.join(f"{issue.key}\n    {issue.details(format=format, prefix='    ')}\n" for issue in self.to_list())
+            return '\n'.join(f"{issue.key}\n    {issue.details(format=format, prefix='    ')}" for issue in self.to_list())
         else:
             return '\n'.join(issue.details(format=format) for issue in self.to_list())
+
+    def filter(self, issure_refs):
+        for key in self.keys():
+            if key not in issure_refs:
+                del self[key]
+        return self
+
+    def update(self, issues):
+        assert isinstance(issues, type(self)), f"JiraIssues type expected"
+        for key, value in issues.items():
+            self[key] = value
+        return self
 
 
 def init_lib():
@@ -142,8 +170,8 @@ def get_jira_data(url, headers = None):
         raise AssertionError()
     try:
         response_json = json.loads(resp.content)
-    except:
-        raise AssertionError(f"Error while loading json:\n{resp.content}")
+    except Exception as e:
+        raise AssertionError(f"Error while loading json: {e}")
     if 'errorMessages' in response_json:
         raise AssertionError(f"Error: {', '.join(response_json.get('errorMessages', ('unspecified', )))}")
     return response_json
@@ -157,13 +185,15 @@ def search_issues(jql, *, maxResults = -1, startAt = None):
     if startAt is not None:
         queryparams['startAt'] = startAt
     req.prepare_url(url, queryparams)
-    return get_jira_data(req.url, headers=jira_request_headers)
+    issues = JiraIssues(get_jira_data(req.url, headers=jira_request_headers)['issues'])
+    write_all_issues_cache(load_all_issues_cache().update(issues))
+    return issues
 
 def get_jira_issues(jira_issue_refs):
     return search_issues(f"key in ({', '.join(jira_issue_refs)})")
 
 def get_user_config():
-    global jira_instance_url, jira_request_headers, queries_definition_file, result_files_dir, alert_sound_file
+    global jira_instance_url, jira_request_headers, queries_definition_file, result_files_dir, alert_sound_file, all_issues_file
     assert os.path.isfile(config_toml_file_name), f"Config file '{config_toml_file_name}' not found"
     user_config = toml.loads(open(config_toml_file_name).read())
     for required_key in required_config_keys:
@@ -178,6 +208,7 @@ def get_user_config():
     queries_definition_file = user_config["queries_definition_file"]
     result_files_dir = user_config["result_files_dir"]
     alert_sound_file = user_config["alert_sound_file"]
+    all_issues_file = user_config["all_issues_file"]
     if not os.path.isdir(result_files_dir):
         os.mkdir(result_files_dir)
     return user_config
@@ -225,18 +256,29 @@ def import_core_data_sets(text):
         core_data_sets[core_data['key']] = core_data
     return core_data_sets
 
-def get_stored_core_data_for_query(query_name):
+def get_stored_issues_for_query(query_name):
     query_title, jql = get_query(query_name)
     query_file_path = os.path.join(result_files_dir, f"{query_title}.txt")
     text = ''
     if os.path.isfile(query_file_path):
         text = open(query_file_path).read()
-    return import_core_data_sets(text)
+    return JiraIssues(import_core_data_sets(text))
 
-def get_updated_issues(issues, stored_data_set):
+def load_all_issues_cache():
+    all_issues_file_path = os.path.join(result_files_dir, all_issues_file)
+    text = ''
+    if os.path.isfile(all_issues_file_path):
+        text = open(all_issues_file_path).read()
+    return JiraIssues(import_core_data_sets(text))
+
+def write_all_issues_cache(all_issues):
+    with open(os.path.join(result_files_dir, all_issues_file), 'w+') as txtfile:
+        txtfile.write(all_issues.details(format='long'))
+
+def get_updated_issues(issues, stored_issues):
     updated_issues = dict()
     for key, issue in issues.items():
-        if key not in stored_data_set or stored_data_set[key] != issue.core_data:
+        if key not in stored_issues or stored_issues[key].core_data != issue.core_data:
             updated_issues[key] = issue
     return updated_issues
 
@@ -297,9 +339,9 @@ def get_format_option(quickparse):
     format = None
     for option in quickparse.options:
         if option == '--short':
-            format == 'short'
+            format = 'short'
         elif option == '--long':
-            format == 'long'
+            format = 'long'
     return format
 
 def play_sound(filename):
