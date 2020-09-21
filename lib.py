@@ -196,6 +196,9 @@ def get_query(query_name):
 def get_all_query_names():
     return tuple(value['name'] for value in get_queries().values())
 
+def get_active_query_names():
+    return tuple(value['name'] for value in get_queries().values() if value.get('passive', False) is not True)
+
 def write_issues(filename, issues):
     with open(os.path.join(result_files_dir, f"{filename}.txt"), 'w+') as txtfile:
         txtfile.write(issues.details(format='long'))

@@ -13,6 +13,7 @@ from lib import (
     search_issues,
     get_query,
     get_all_query_names,
+    get_active_query_names,
     write_issues,
     get_stored_core_data_for_query,
     get_updated_issues,
@@ -37,11 +38,17 @@ def exit_cue():
     raise EOFError()
 
 def execute_command(quickparse):
+    incoming_query_names = [str(param) for param in quickparse.parameters]
     all_query_names = get_all_query_names()
+    active_query_names = get_active_query_names()
     assert len(quickparse.parameters) >= 1 or '--all' in quickparse.options, f"Query name expected - available: {', '.join(all_query_names)}"
-    unknown_query_names = [query_name for query_name in quickparse.parameters if query_name not in all_query_names]
+    unknown_query_names = [query_name for query_name in incoming_query_names if query_name not in all_query_names]
     assert len(unknown_query_names) == 0, f"Unknown query names: {', '.join(unknown_query_names)}"
-    query_names = all_query_names if '--all' in quickparse.options else quickparse.parameters
+    if '--all' in quickparse.options:
+        query_names = set(active_query_names)
+        query_names.update(incoming_query_names)
+    else:
+        query_names = incoming_query_names
     for query_name in query_names:
         stored_data_set = get_stored_core_data_for_query(query_name)
         if len(stored_data_set) == 0 or '--refresh' in quickparse.options:
@@ -76,6 +83,7 @@ commands_config = {
 }
 
 options_config = (
+    ('-a', '--all'),
     ('-s', '--short'),
     ('-l', '--long'),
     ('-r', '--refresh'),
