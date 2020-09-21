@@ -7,3 +7,24 @@ targeting 4.30 FE:
 targeting 4.31:
   name: "431"
   jql: project in ("Trading UI Team") AND "Target Version/s" in (4_31)
+issues of Gabs:
+  name: "gabs"
+  jql: assignee = gabriella.libonati and status != closed and createdDate > 2020-01-01
+issues of Henry:
+  name: "henry"
+  jql: assignee = henry.miller and status != closed and createdDate > 2020-01-01
+issues of Marco:
+  name: "marco"
+  jql: assignee = marco.diener and status != closed and createdDate > 2020-01-01
+issues of Michael:
+  name: "michael"
+  jql: assignee = michael.whelan and status != closed and createdDate > 2020-01-01
+issues of Nuno:
+  name: "nuno"
+  jql: assignee = nuno.bettencourt and status != closed and createdDate > 2020-01-01
+issues of Peter:
+  name: "peter"
+  jql: assignee = peter.olah and status != closed and createdDate > 2020-01-01
+issues of Raj:
+  name: "raj"
+  jql: assignee = raj.thota and status != closed and createdDate > 2020-01-01
