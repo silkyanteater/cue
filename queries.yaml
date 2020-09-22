@@ -1,6 +1,3 @@
-merge to master:
-  name: mtm
-  jql: project = UI and status = "Merge To Master DOING" and "Epic Link" not in (UI-771, UI-1010)
 targeting 4.30 FE:
   name: 430FE
   passive: true
@@ -13,25 +10,34 @@ targeting 4.30 FE:
   name: 431FE
   passive: true
   jql: project not in (QAT) AND "Target Version/s" in (4_31_FE)
+
+active UI epics:
+  name: epics
+  passive: true
+  jql: project = "Trading UI Team" and issuetype = Epic and status != Closed
+
+merge to master:
+  name: mtm
+  jql: project = UI and status = "Merge To Master DOING" and "Epic Link" not in (UI-771, UI-1010)
 issues of Gabs:
   name: gabs
-  jql: assignee = gabriella.libonati and status != closed and createdDate > 2020-01-01
+  jql: assignee = gabriella.libonati and status != closed and createdDate > 2019-01-01
 issues of Henry:
   name: henry
-  jql: assignee = henry.miller and status != closed and createdDate > 2020-01-01
+  jql: assignee = henry.miller and status != closed and createdDate > 2019-01-01
 issues of Marco:
   name: marco
-  jql: assignee = marco.diener and status != closed and createdDate > 2020-01-01
+  jql: assignee = marco.diener and status != closed and createdDate > 2019-01-01
 issues of Michael:
   name: michael
-  jql: assignee = michael.whelan and status != closed and createdDate > 2020-01-01
+  jql: assignee = michael.whelan and status != closed and createdDate > 2019-01-01
 issues of Nuno:
   name: nuno
-  jql: assignee = nuno.bettencourt and status != closed and createdDate > 2020-01-01
+  jql: assignee = nuno.bettencourt and status != closed and createdDate > 2019-01-01
 issues of Peter:
   name: peter
   passive: true
-  jql: assignee = peter.olah and status != closed and createdDate > 2020-01-01
+  jql: assignee = peter.olah and status != closed and createdDate > 2019-01-01
 issues of Raj:
   name: raj
-  jql: assignee = raj.thota and status != closed and createdDate > 2020-01-01
+  jql: assignee = raj.thota and status != closed and createdDate > 2019-01-01

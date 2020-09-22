@@ -28,6 +28,10 @@ queries_definition_file = None
 result_files_dir = None
 alert_sound_file = None
 all_issues_file = None
+all_issues_cache = None
+
+issue_ref_re = re.compile(r"[a-zA-Z]+-\d+")
+sprint_re = re.compile(r'(?<=name=).+?(?=,)')
 
 
 class ANSIColors(object):
@@ -59,6 +63,11 @@ class JiraIssue(object):
         self.raw_data = issue_obj
         if 'fields' in issue_obj:
             fields = issue_obj['fields']
+            sprints = list()
+            for sprint in fields['customfield_10104']:
+                hit = sprint_re.search(sprint)
+                if hit is not None:
+                    sprints.append(hit.group())
             self.data = {
                 'key': (issue_obj['key'] or '').strip(),
                 'title': (fields['summary'] or '').strip(),
@@ -77,15 +86,19 @@ class JiraIssue(object):
                 'labels_str': f"{', '.join(label.strip() for label in fields['labels'])}",
                 'description': re.sub(r'\s+', ' ', (fields['description'] or '').strip()),
                 'time_spent': fields['timespent'],
-                'time_spent_str': f"{fields['timespent'] // 3600}:{(fields['timespent'] % 3600) // 60:02}" if fields['timespent'] is not None else "-",
+                'time_spent_str': f"{fields['timespent'] // 3600}:{(fields['timespent'] % 3600) // 60:02}" if fields['timespent'] is not None else "",
                 'estimate': fields['timeestimate'],
-                'estimate_str': f"{fields['timeestimate'] // 3600}:{(fields['timeestimate'] % 3600) // 60:02}" if fields['timeestimate'] is not None else "-",
+                'estimate_str': f"{fields['timeestimate'] // 3600}:{(fields['timeestimate'] % 3600) // 60:02}" if fields['timeestimate'] is not None else "",
                 'original_estimate': fields['timeoriginalestimate'],
-                'original_estimate_str': f"{fields['timeoriginalestimate'] // 3600}:{(fields['timeoriginalestimate'] % 3600) // 60:02}" if fields['timeoriginalestimate'] is not None else "-",
+                'original_estimate_str': f"{fields['timeoriginalestimate'] // 3600}:{(fields['timeoriginalestimate'] % 3600) // 60:02}" if fields['timeoriginalestimate'] is not None else "",
                 'progress': fields['progress'],
                 'project': (fields['customfield_13613'] or '').strip(),
                 'fr': (fields['customfield_13611'] or '').strip(),
                 'epic': (fields['customfield_10100'] or '').strip(),
+                'story_points': str(fields['customfield_10106'] or ''),
+                'sprints': sprints,
+                'sprints_str': ', '.join(sorted(sprints)),
+                'parent': fields.get('parent', dict()).get('key', ''),
             }
             self.core_data = {key: self.data[key] for key, value in issue_display_keys}
             self.core_data['key'] = self.data['key']
@@ -103,13 +116,21 @@ class JiraIssue(object):
     def __str__(self):
         return f"{self.key} - {self.title}"
 
-    def details(self, *, format = None, prefix = ''):
+    def details(self, *, format = None, prefix = '', expand_links = False):
         if format == 'short':
             return str(self)
         elif format == 'long':
-            return f'\n{prefix}'.join(f"{display_key:{display_key_len}} : {getattr(self, key)}" for key, display_key in issue_display_keys)
+            lines = list()
+            for key, display_key in issue_display_keys:
+                attr = getattr(self, key)
+                if expand_links is True and issue_ref_re.match(attr) is not None:
+                    issues_cache = load_all_issues_cache()
+                    if attr in issues_cache:
+                        attr = f"{attr} - {issues_cache[attr].title}"
+                lines.append(f"{display_key:{display_key_len}} : {attr}")
+            return f'\n{prefix}'.join(lines)
         else:
-            return f"{self.key} - {self.title}\n  {self.assignee or 'unassigned'} | {self.status}"
+            return f"{self.key} - {self.title}\n  {self.assignee or 'unassigned'} | {self.type} | {self.status}"
 
 
 class JiraIssues(dict):
@@ -136,16 +157,19 @@ class JiraIssues(dict):
     def to_list(self):
         return sorted(self.values(), key=lambda issue: issue.key, reverse=True)
 
-    def details(self, *, format = None):
+    def details(self, *, format = None, expand_links = False):
         if format == 'long':
-            return '\n'.join(f"{issue.key}\n    {issue.details(format=format, prefix='    ')}" for issue in self.to_list())
+            return '\n'.join(f"{issue.key}\n    {issue.details(format=format, prefix='    ', expand_links=expand_links)}" for issue in self.to_list())
         else:
-            return '\n'.join(issue.details(format=format) for issue in self.to_list())
+            return '\n'.join(issue.details(format=format, expand_links=expand_links) for issue in self.to_list())
 
     def filter(self, issure_refs):
+        keys_to_remove = list()
         for key in self.keys():
             if key not in issure_refs:
-                del self[key]
+                keys_to_remove.append(key)
+        for key in keys_to_remove:
+            del self[key]
         return self
 
     def update(self, issues):
@@ -160,6 +184,7 @@ def init_lib():
 
 def get_jira_data(url, headers = None):
     try:
+        print(f"Sending request: {url}")
         if headers is None:
             resp = requests.get(url, allow_redirects=True, timeout=request_timeout_seconds)
         else:
@@ -186,7 +211,7 @@ def search_issues(jql, *, maxResults = -1, startAt = None):
         queryparams['startAt'] = startAt
     req.prepare_url(url, queryparams)
     issues = JiraIssues(get_jira_data(req.url, headers=jira_request_headers)['issues'])
-    write_all_issues_cache(load_all_issues_cache().update(issues))
+    update_all_issues_cache(issues)
     return issues
 
 def get_jira_issues(jira_issue_refs):
@@ -265,15 +290,19 @@ def get_stored_issues_for_query(query_name):
     return JiraIssues(import_core_data_sets(text))
 
 def load_all_issues_cache():
-    all_issues_file_path = os.path.join(result_files_dir, all_issues_file)
-    text = ''
-    if os.path.isfile(all_issues_file_path):
-        text = open(all_issues_file_path).read()
-    return JiraIssues(import_core_data_sets(text))
+    global all_issues_cache
+    if all_issues_cache is None:
+        all_issues_file_path = os.path.join(result_files_dir, all_issues_file)
+        text = ''
+        if os.path.isfile(all_issues_file_path):
+            text = open(all_issues_file_path).read()
+        all_issues_cache = JiraIssues(import_core_data_sets(text))
+    return all_issues_cache
 
-def write_all_issues_cache(all_issues):
+def update_all_issues_cache(issues):
+    all_issues_cache = load_all_issues_cache().update(issues)
     with open(os.path.join(result_files_dir, all_issues_file), 'w+') as txtfile:
-        txtfile.write(all_issues.details(format='long'))
+        txtfile.write(all_issues_cache.details(format='long'))
 
 def get_updated_issues(issues, stored_issues):
     updated_issues = dict()
@@ -330,7 +359,7 @@ def print_queue():
         print("Queue is empty")
 
 def normalise_issue_ref(issue_ref):
-    return re.sub(r"([a-zA-z])(?=\d)", r"\1-", issue_ref).upper()
+    return re.sub(r"([a-zA-Z])(?=\d)", r"\1-", issue_ref).upper()
 
 def show_help():
     sys.stdout.write(help_text)

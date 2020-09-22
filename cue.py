@@ -17,6 +17,7 @@ from lib import (
     write_issues,
     get_stored_issues_for_query,
     load_all_issues_cache,
+    update_all_issues_cache,
     get_updated_issues,
     update_queue,
     step_through_queue,
@@ -61,7 +62,8 @@ def execute_command(quickparse):
         else:
             issues = stored_issues
         if len(issues) > 0:
-            print(issues.details(format=get_format_option(quickparse)))
+            update_all_issues_cache(issues)
+            print(issues.details(format=get_format_option(quickparse), expand_links=True))
         else:
             print(f"{query_title}: no issues found")
 
@@ -71,13 +73,14 @@ def show_issue(quickparse):
     if '--refresh' in quickparse.options:
         issues = get_jira_issues(jira_issue_refs)
     else:
-        cache_issues = load_all_issues_cache().filter(issue_ref for issue_ref in jira_issue_refs)
+        cache_issues = JiraIssues().update(load_all_issues_cache()).filter(jira_issue_refs)
         new_issue_refs = [issue_ref for issue_ref in jira_issue_refs if issue_ref not in cache_issues]
         new_issues = JiraIssues()
         if len(new_issue_refs) > 0:
             new_issues = get_jira_issues(jira_issue_refs)
         issues = JiraIssues().update(cache_issues).update(new_issues)
-    print(issues.details(format=get_format_option(quickparse)))
+    update_all_issues_cache(issues)
+    print(issues.details(format=get_format_option(quickparse), expand_links=True))
 
 
 commands_config = {

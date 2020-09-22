@@ -11,17 +11,20 @@ required_config_keys = (
 
 issue_display_keys = (
     ('title', 'Title'),
-    ('type', 'Type'),
     ('assignee', 'Assignee'),
     ('status', 'Status'),
+    ('type', 'Type'),
+    ('parent', 'Parent'),
     ('epic', 'Epic'),
+    ('story_points', 'Story points'),
+    ('sprints_str', 'Sprints'),
     ('resolution', 'Resolution'),
     ('target_version', 'Target version'),
     ('git_branches', 'Git branches'),
     ('created_str', 'Created'),
     ('labels_str', 'Labels'),
     ('time_spent_str', 'Time spent'),
-    ('estimate_str', 'Estimate'),
+    ('original_estimate_str', 'Estimate'),
 )
 display_key_len = max(len(item[1]) for item in issue_display_keys)
 
