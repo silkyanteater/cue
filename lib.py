@@ -34,7 +34,7 @@ issue_ref_re = re.compile(r"[a-zA-Z]+-\d+")
 sprint_re = re.compile(r'(?<=name=).+?(?=,)')
 
 
-class ANSIColors(object):
+class CLR(object):
 
     reset = '\u001b[0m'
 
@@ -64,7 +64,7 @@ class JiraIssue(object):
         if 'fields' in issue_obj:
             fields = issue_obj['fields']
             sprints = list()
-            for sprint in fields['customfield_10104']:
+            for sprint in (fields['customfield_10104'] or tuple()):
                 hit = sprint_re.search(sprint)
                 if hit is not None:
                     sprints.append(hit.group())
@@ -97,7 +97,7 @@ class JiraIssue(object):
                 'epic': (fields['customfield_10100'] or '').strip(),
                 'story_points': str(fields['customfield_10106'] or ''),
                 'sprints': sprints,
-                'sprints_str': ', '.join(sorted(sprints)),
+                'sprints_str': ', '.join(sprints),
                 'parent': fields.get('parent', dict()).get('key', ''),
             }
             self.core_data = {key: self.data[key] for key, value in issue_display_keys}
@@ -130,7 +130,8 @@ class JiraIssue(object):
                 lines.append(f"{display_key:{display_key_len}} : {attr}")
             return f'\n{prefix}'.join(lines)
         else:
-            return f"{self.key} - {self.title}\n  {self.assignee or 'unassigned'} | {self.type} | {self.status}"
+            last_sprint = self.sprints_str.split(',')[-1].strip() or '(no sprint)'
+            return f"{CLR.l_yellow}{self.key:7}{CLR.reset} - {CLR.reset}{self.title}{CLR.reset}\n          {CLR.green}{self.assignee or '(unassigned)'}{CLR.reset} | {CLR.l_blue}{self.type}{f' ({self.parent})' if self.parent else ''}{CLR.reset} | {CLR.l_red}{self.status}{CLR.reset} | {CLR.cyan}{last_sprint}{CLR.reset} | {CLR.magenta}{self.target_version or '(no target)'}{CLR.reset}"
 
 
 class JiraIssues(dict):

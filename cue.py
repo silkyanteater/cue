@@ -6,7 +6,7 @@ import sys
 from quickparse import QuickParse
 
 from lib import (
-    ANSIColors,
+    CLR,
     JiraIssues,
     init_lib,
     get_jira_issues,
@@ -142,7 +142,7 @@ if __name__ == '__main__':
         exit()
     if len(sys.argv) == 1:
         remsrepl = RemsREPL()
-        remsrepl.prompt = f"{ANSIColors.l_blue}cue·{ANSIColors.reset}"
+        remsrepl.prompt = f"{CLR.l_blue}cue·{CLR.reset}"
         nothing_worse_than_keyboardinterrupt = True
         while(nothing_worse_than_keyboardinterrupt):
             nothing_worse_than_keyboardinterrupt = False
