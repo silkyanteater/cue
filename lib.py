@@ -11,9 +11,17 @@ import subprocess
 import platform
 
 from const import (
+    CLR,
     config_toml_file_name,
     required_config_keys,
     issue_display_keys,
+    issue_fields_compact_head,
+    issue_fields_compact_head_separator,
+    issue_fields_compact_parent,
+    issue_fields_compact_epic,
+    issue_fields_compact_body,
+    issue_fields_compact_body_separator,
+    issue_fields_compact_vertical_separator,
     display_key_len,
     queue_file_name,
     request_timeout_seconds,
@@ -34,34 +42,11 @@ issue_ref_re = re.compile(r"[a-zA-Z]+-\d+")
 sprint_re = re.compile(r'(?<=name=).+?(?=,)')
 
 
-class CLR(object):
-
-    reset = '\u001b[0m'
-
-    black = '\u001b[30m'
-    red = '\u001b[31m'
-    green = '\u001b[32m'
-    yellow = '\u001b[33m'
-    blue = '\u001b[34m'
-    magenta = '\u001b[35m'
-    cyan = '\u001b[36m'
-    white = '\u001b[37m'
-
-    l_black = '\u001b[30;1m'
-    l_red = '\u001b[31;1m'
-    l_green = '\u001b[32;1m'
-    l_yellow = '\u001b[33;1m'
-    l_blue = '\u001b[34;1m'
-    l_magenta = '\u001b[35;1m'
-    l_cyan = '\u001b[36;1m'
-    l_white = '\u001b[37;1m'
-
-
 class JiraIssue(object):
 
     def __init__(self, issue_obj):
-        self.raw_data = issue_obj
         if 'fields' in issue_obj:
+            self.raw_data = issue_obj
             fields = issue_obj['fields']
             sprints = list()
             for sprint in (fields['customfield_10104'] or tuple()):
@@ -97,13 +82,18 @@ class JiraIssue(object):
                 'epic': (fields['customfield_10100'] or '').strip(),
                 'story_points': str(fields['customfield_10106'] or ''),
                 'sprints': sprints,
+                'last_sprint': sprints[-1] if len(sprints) > 0 else '',
                 'sprints_str': ', '.join(sprints),
                 'parent': fields.get('parent', dict()).get('key', ''),
             }
             self.core_data = {key: self.data[key] for key, value in issue_display_keys}
             self.core_data['key'] = self.data['key']
         else:
-            self.data = self.core_data = issue_obj
+            self.raw_data = self.core_data = dict(issue_obj)
+            data = dict(issue_obj)
+            data['sprints'] = [sprint.strip() for sprint in data['sprints_str'].split(',')]
+            data['last_sprint'] = data['sprints'][-1] if len(data['sprints']) > 0 else ''
+            self.data = data
 
     def __getattr__(self, attr):
         if attr in self.data:
@@ -114,24 +104,51 @@ class JiraIssue(object):
             raise KeyError(attr)
 
     def __str__(self):
+        return self.format_short()
+
+    def format_short(self):
         return f"{self.key} - {self.title}"
 
-    def details(self, *, format = None, prefix = '', expand_links = False):
-        if format == 'short':
-            return str(self)
-        elif format == 'long':
-            lines = list()
-            for key, display_key in issue_display_keys:
-                attr = getattr(self, key)
-                if expand_links is True and issue_ref_re.match(attr) is not None:
-                    issues_cache = load_all_issues_cache()
-                    if attr in issues_cache:
-                        attr = f"{attr} - {issues_cache[attr].title}"
-                lines.append(f"{display_key:{display_key_len}} : {attr}")
-            return f'\n{prefix}'.join(lines)
+    def format_compact(self):
+        fields = list()
+        for key, length, default, color in issue_fields_compact_head:
+            attr = getattr(self, key)
+            field_str = ellipsis(attr, length) if attr else default
+            fields.append(f"{color}{field_str:{length}}{CLR.reset}")
+        format_str = f"{issue_fields_compact_head_separator.join(fields)}"
+        if self.parent:
+            length, default, color = issue_fields_compact_parent
+            parent = expand_issue_link(self.parent)
+            field_str = ellipsis(parent, length) if parent else default
+            format_str += f"\n  {CLR.blue}Parent{CLR.reset}: {color}{field_str:{length}}{CLR.reset}"
+        if self.epic:
+            length, default, color = issue_fields_compact_parent
+            attr = expand_issue_link(self.epic)
+            field_str = ellipsis(attr, length) if attr else default
+            format_str += f"\n  {CLR.blue}Epic{CLR.reset}: {color}{field_str:{length}}{CLR.reset}"
+        fields.clear()
+        for key, length, default, color in issue_fields_compact_body:
+            attr = getattr(self, key)
+            field_str = ellipsis(attr, length) if attr else default
+            fields.append(f"{color}{field_str:^{length}}{CLR.reset}")
+        format_str += f"\n    {issue_fields_compact_body_separator.lstrip()}{issue_fields_compact_body_separator.join(fields)}{issue_fields_compact_body_separator.rstrip()}"
+        return format_str
+
+    def format_long(self, prefix = '', expand_links = False):
+        lines = list()
+        for key, display_key in issue_display_keys:
+            attr = getattr(self, key)
+            attr = expand_issue_link(attr) if expand_links is True else attr
+            lines.append(f"{display_key:{display_key_len}} : {attr}")
+        return f'\n{prefix}'.join(lines)
+
+    def format(self, *, sort = None, prefix = '', expand_links = False):
+        if sort == 'short':
+            return self.format_short()
+        elif sort == 'long':
+            return self.format_long(prefix=prefix, expand_links=expand_links)
         else:
-            last_sprint = self.sprints_str.split(',')[-1].strip() or '(no sprint)'
-            return f"{CLR.l_yellow}{self.key:7}{CLR.reset} - {CLR.reset}{self.title}{CLR.reset}\n          {CLR.green}{self.assignee or '(unassigned)'}{CLR.reset} | {CLR.l_blue}{self.type}{f' ({self.parent})' if self.parent else ''}{CLR.reset} | {CLR.l_red}{self.status}{CLR.reset} | {CLR.cyan}{last_sprint}{CLR.reset} | {CLR.magenta}{self.target_version or '(no target)'}{CLR.reset}"
+            return self.format_compact()
 
 
 class JiraIssues(dict):
@@ -158,11 +175,19 @@ class JiraIssues(dict):
     def to_list(self):
         return sorted(self.values(), key=lambda issue: issue.key, reverse=True)
 
-    def details(self, *, format = None, expand_links = False):
-        if format == 'long':
-            return '\n'.join(f"{issue.key}\n    {issue.details(format=format, prefix='    ', expand_links=expand_links)}" for issue in self.to_list())
+    def format(self, *, sort = None, expand_links = False):
+        if sort == 'long':
+            return '\n'.join(f"{issue.key}\n    {issue.format(sort=sort, prefix='    ', expand_links=expand_links)}" for issue in self.to_list())
+        elif sort == 'compact':
+            if issue_fields_compact_vertical_separator:
+                separator = '\n' + issue_fields_compact_vertical_separator + '\n'
+                return issue_fields_compact_vertical_separator + '\n' + \
+                    separator.join(issue.format(sort=sort, expand_links=expand_links) for issue in self.to_list()) + \
+                    '\n' + issue_fields_compact_vertical_separator
+            else:
+                return '\n'.join(issue.format(sort=sort, expand_links=expand_links) for issue in self.to_list())
         else:
-            return '\n'.join(issue.details(format=format, expand_links=expand_links) for issue in self.to_list())
+            return '\n'.join(issue.format(sort=sort, expand_links=expand_links) for issue in self.to_list())
 
     def filter(self, issure_refs):
         keys_to_remove = list()
@@ -258,7 +283,7 @@ def get_active_query_names():
 
 def write_issues(filename, issues):
     with open(os.path.join(result_files_dir, f"{filename}.txt"), 'w+') as txtfile:
-        txtfile.write(issues.details(format='long'))
+        txtfile.write(issues.format(sort='long'))
 
 def import_core_data_of_issue(issue_text):
     core_data = dict()
@@ -303,7 +328,7 @@ def load_all_issues_cache():
 def update_all_issues_cache(issues):
     all_issues_cache = load_all_issues_cache().update(issues)
     with open(os.path.join(result_files_dir, all_issues_file), 'w+') as txtfile:
-        txtfile.write(all_issues_cache.details(format='long'))
+        txtfile.write(all_issues_cache.format(sort='long'))
 
 def get_updated_issues(issues, stored_issues):
     updated_issues = dict()
@@ -366,7 +391,7 @@ def show_help():
     sys.stdout.write(help_text)
 
 def get_format_option(quickparse):
-    format = None
+    format = 'compact'
     for option in quickparse.options:
         if option == '--short':
             format = 'short'
@@ -395,3 +420,16 @@ def sound_alert_if_queue_not_empty():
             print("Queue is empty")
     else:
         print("Queue is empty")
+
+def ellipsis(string, length):
+    if len(string) <= length:
+        return string
+    else:
+        return f"{string[:length-1]}…"
+
+def expand_issue_link(field):
+    if issue_ref_re.match(field) is not None:
+        issues_cache = load_all_issues_cache()
+        if field in issues_cache:
+            return f"{field} - {issues_cache[field].title}"
+    return field

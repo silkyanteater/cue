@@ -6,7 +6,6 @@ import sys
 from quickparse import QuickParse
 
 from lib import (
-    CLR,
     JiraIssues,
     init_lib,
     get_jira_issues,
@@ -30,6 +29,7 @@ from lib import (
 )
 
 from const import (
+    CLR,
     help_text,
 )
 
@@ -63,7 +63,7 @@ def execute_command(quickparse):
             issues = stored_issues
         if len(issues) > 0:
             update_all_issues_cache(issues)
-            print(issues.details(format=get_format_option(quickparse), expand_links=True))
+            print(issues.format(sort=get_format_option(quickparse), expand_links=True))
         else:
             print(f"{query_title}: no issues found")
 
@@ -80,7 +80,7 @@ def show_issue(quickparse):
             new_issues = get_jira_issues(jira_issue_refs)
         issues = JiraIssues().update(cache_issues).update(new_issues)
     update_all_issues_cache(issues)
-    print(issues.details(format=get_format_option(quickparse), expand_links=True))
+    print(issues.format(sort=get_format_option(quickparse), expand_links=True))
 
 
 commands_config = {
