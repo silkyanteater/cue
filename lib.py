@@ -116,6 +116,7 @@ class JiraIssue(object):
             field_str = ellipsis(attr, length) if attr else default
             fields.append(f"{color}{field_str:{length}}{CLR.reset}")
         format_str = f"{issue_fields_compact_head_separator.join(fields)}"
+        # TODO: show epic parent links
         if self.parent:
             length, default, color = issue_fields_compact_parent
             parent = expand_issue_link(self.parent)

@@ -21,23 +21,23 @@ merge to master:
   jql: project = UI and status = "Merge To Master DOING" and "Epic Link" not in (UI-771, UI-1010)
 issues of Gabs:
   name: gabs
-  jql: assignee = gabriella.libonati and status != closed and createdDate > 2019-01-01
+  jql: (assignee = gabriella.libonati or labels in (GL)) and status != closed and (createdDate > 2019-01-01 or status != backlog)
 issues of Henry:
   name: henry
-  jql: assignee = henry.miller and status != closed and createdDate > 2019-01-01
+  jql: (assignee = henry.miller or labels in (HM)) and status != closed and (createdDate > 2019-01-01 or status != backlog)
 issues of Marco:
   name: marco
-  jql: assignee = marco.diener and status != closed and createdDate > 2019-01-01
+  jql: (assignee = marco.diener or labels in (MD)) and status != closed and (createdDate > 2019-01-01 or status != backlog)
 issues of Michael:
   name: michael
-  jql: assignee = michael.whelan and status != closed and createdDate > 2019-01-01
+  jql: (assignee = michael.whelan or labels in (MW)) and status != closed and (createdDate > 2019-01-01 or status != backlog)
 issues of Nuno:
   name: nuno
-  jql: assignee = nuno.bettencourt and status != closed and createdDate > 2019-01-01
+  jql: (assignee = nuno.bettencourt or labels in (NB)) and status != closed and (createdDate > 2019-01-01 or status != backlog)
 issues of Peter:
   name: peter
   passive: true
-  jql: assignee = peter.olah and status != closed and createdDate > 2019-01-01
+  jql: (assignee = peter.olah or labels in (PO)) and status != closed and (createdDate > 2019-01-01 or status != backlog)
 issues of Raj:
   name: raj
-  jql: assignee = raj.thota and status != closed and createdDate > 2019-01-01
+  jql: (assignee = raj.thota or labels in (RT)) and status != closed and (createdDate > 2019-01-01 or status != backlog)

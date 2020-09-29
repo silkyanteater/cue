@@ -59,7 +59,7 @@ issue_fields_compact_head_separator = ' - '
 issue_fields_compact_parent = (125, '', CLR.l_cyan)
 issue_fields_compact_epic = (125, '', CLR.l_cyan)
 issue_fields_compact_body = (
-    ('assignee', 16, 'unassigned', CLR.green),
+    ('assignee', 19, 'unassigned', CLR.green),
     ('type', 8, '', CLR.l_blue),
     ('status', 21, '', CLR.l_red),
     ('resolution', 10, 'unresolved', CLR.l_black),
@@ -70,7 +70,7 @@ issue_fields_compact_body = (
     ('git_branches', 77, '', CLR.cyan),
 )
 issue_fields_compact_body_separator = ' | '
-issue_fields_compact_vertical_separator = '-'*125
+issue_fields_compact_vertical_separator = CLR.l_black + '·'*200 + CLR.reset
 
 queue_file_name = 'queue.txt'
 
