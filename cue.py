@@ -1,37 +1,13 @@
 import traceback
 import shlex
 from cmd import Cmd
+import os
 import sys
 import webbrowser
 
 from quickparse import QuickParse
 
-from lib import (
-    JiraIssues,
-    init_lib,
-    get_jira_issues,
-    search_issues,
-    get_query,
-    get_all_query_names,
-    get_active_query_names,
-    write_issues,
-    get_stored_issues_for_query,
-    load_all_issues_cache,
-    update_all_issues_cache,
-    get_updated_issues,
-    update_queue,
-    step_through_queue,
-    print_queue,
-    convert_to_issue_ref,
-    show_help,
-    get_format_option,
-    sound_alert_if_queue_not_empty,
-)
-
-from const import (
-    CLR,
-    help_text,
-)
+from lib import *
 
 
 def init():
@@ -39,6 +15,19 @@ def init():
 
 def exit_cue():
     raise EOFError()
+
+def handle_no_command(quickparse):
+    cli_input = ' '.join(quickparse.args)
+    if len(quickparse.args) > 0 and cli_input.startswith('.'):
+        if cli_input.startswith('.cd'):
+            try:
+                os.chdir(cli_input[4:])
+            except Exception as e:
+                print(e)
+        else:
+            os.system(cli_input[1:])
+    else:
+        assert len(quickparse.args) == 0, f"Unknown command: {' '.join(quickparse.args)}"
 
 def execute_command(quickparse):
     incoming_query_names = [str(param) for param in quickparse.parameters]
@@ -88,10 +77,9 @@ def open_issue_in_browser(quickparse):
     for ref in (convert_to_issue_ref(ref) for ref in quickparse.parameters):
         webbrowser.open(f"https://jira.pbs.one/browse/{ref}")
 
-# TODO: remove terminal colours if it goes to stdout
-
 
 commands_config = {
+    '': handle_no_command,
     ('h', 'help'): show_help,
     ('quit', 'exit'): exit_cue,
     ('x', 'exec', 'execute'): execute_command,
@@ -110,12 +98,12 @@ options_config = (
 )
 
 
-class RemsREPL(Cmd):
+class CueREPL(Cmd):
 
     def cmdloop(self, intro=None):
         while True:
             try:
-                super(RemsREPL, self).cmdloop(intro="")
+                super(CueREPL, self).cmdloop(intro="")
                 break
             except KeyboardInterrupt:
                 print("^C")
@@ -130,7 +118,6 @@ class RemsREPL(Cmd):
     def default(self, inp):
         try:
             QuickParse(commands_config, options_config=options_config, cli_args=shlex.split(inp)).execute()
-            print()
         except AssertionError as ae:
             print(f'{ae}')
         except EOFError as ee:
@@ -150,13 +137,15 @@ if __name__ == '__main__':
         print(f'{ae}')
         exit()
     if len(sys.argv) == 1:
-        remsrepl = RemsREPL()
-        remsrepl.prompt = f"{CLR.l_blue}cue·{CLR.reset}"
+        if SCRIPT_PATH is not None:
+            os.chdir(SCRIPT_PATH)
+        cuerepl = CueREPL()
+        cuerepl.prompt = f"{CLR.l_blue}cue·{CLR.reset}"
         nothing_worse_than_keyboardinterrupt = True
         while(nothing_worse_than_keyboardinterrupt):
             nothing_worse_than_keyboardinterrupt = False
             try:
-                remsrepl.cmdloop()
+                cuerepl.cmdloop()
             except KeyboardInterrupt:
                 print(f'^C')
                 nothing_worse_than_keyboardinterrupt = True

@@ -1,6 +1,9 @@
+import os
 import re
 import shutil
 
+
+SCRIPT_PATH = os.environ.get('SCRIPT_PATH')
 
 class CLR(object):
 
