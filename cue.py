@@ -2,6 +2,7 @@ import traceback
 import shlex
 from cmd import Cmd
 import sys
+import webbrowser
 
 from quickparse import QuickParse
 
@@ -21,11 +22,10 @@ from lib import (
     update_queue,
     step_through_queue,
     print_queue,
-    normalise_issue_ref,
+    convert_to_issue_ref,
     show_help,
     get_format_option,
     sound_alert_if_queue_not_empty,
-    JiraIssues,
 )
 
 from const import (
@@ -54,6 +54,7 @@ def execute_command(quickparse):
         query_names = incoming_query_names
     for query_name in query_names:
         stored_issues = get_stored_issues_for_query(query_name)
+        # TODO: add TTL to queries
         if len(stored_issues) == 0 or '--refresh' in quickparse.options:
             query_title, jql = get_query(query_name)
             issues = search_issues(jql)
@@ -63,13 +64,13 @@ def execute_command(quickparse):
             issues = stored_issues
         if len(issues) > 0:
             update_all_issues_cache(issues)
-            print(issues.format(sort=get_format_option(quickparse), expand_links=True))
+            print(issues.format(variant=get_format_option(quickparse), expand_links=True, align_field_separator = True))
         else:
             print(f"{query_title}: no issues found")
 
 def show_issue(quickparse):
     assert len(quickparse.parameters) >= 1, f"Issue reference is missing"
-    jira_issue_refs = [normalise_issue_ref(ref) for ref in quickparse.parameters]
+    jira_issue_refs = [convert_to_issue_ref(ref) for ref in quickparse.parameters]
     if '--refresh' in quickparse.options:
         issues = get_jira_issues(jira_issue_refs)
     else:
@@ -80,7 +81,14 @@ def show_issue(quickparse):
             new_issues = get_jira_issues(jira_issue_refs)
         issues = JiraIssues().update(cache_issues).update(new_issues)
     update_all_issues_cache(issues)
-    print(issues.format(sort=get_format_option(quickparse), expand_links=True))
+    print(issues.format(variant=get_format_option(quickparse), expand_links=True, align_field_separator = True))
+
+def open_issue_in_browser(quickparse):
+    assert len(quickparse.parameters) >= 1, f"Issue reference is missing"
+    for ref in (convert_to_issue_ref(ref) for ref in quickparse.parameters):
+        webbrowser.open(f"https://jira.pbs.one/browse/{ref}")
+
+# TODO: remove terminal colours if it goes to stdout
 
 
 commands_config = {
@@ -91,11 +99,12 @@ commands_config = {
     ('l', 'ls', 'list'): print_queue,
     ('q', 'queue'): step_through_queue,
     ('a', 'alert'): sound_alert_if_queue_not_empty,
+    ('o', 'open'): open_issue_in_browser,
 }
 
 options_config = (
     ('-a', '--all'),
-    ('-s', '--short'),
+    ('-o', '--oneline'),
     ('-l', '--long'),
     ('-r', '--refresh'),
 )

@@ -11,33 +11,52 @@ targeting 4.30 FE:
   passive: true
   jql: project not in (QAT) AND "Target Version/s" in (4_31_FE)
 
+regression issues 4.31:
+  name: reg431
+  jql: project = UI and affectedVersion = 4_31 and status != Closed
+
 active UI epics:
   name: epics
   passive: true
   jql: project = "Trading UI Team" and issuetype = Epic and status != Closed
+dev regression tickets:
+  name: devreg
+  passive: true
+  jql: project = UI and labels in (nathan_mo_4_31) AND labels in (dev_regression) AND labels not in (DevRegressionPassed, no_reg, no_regression, ops_no_reg)
 
 merge to master:
   name: mtm
   jql: project = UI and status = "Merge To Master DOING" and "Epic Link" not in (UI-771, UI-1010)
+top 5 support issues:
+  name: top5
+  jql: project = UI and labels in (supTop5)
+top 5-10 support issues:
+  name: top10
+  jql: project = UI and labels in (supTop10)
+issues without regression labels:
+  name: noreg
+  jql: project = UI and labels not in (qa_regression, dev_regression) and status not in (Closed, Backlog, TODO, DOING) and type != epic
+
 issues of Gabs:
   name: gabs
-  jql: (assignee = gabriella.libonati or labels in (GL)) and status != closed and (createdDate > 2019-01-01 or status != backlog)
+  jql: project = UI and (assignee = gabriella.libonati or labels in (GL)) and status != closed and (createdDate > 2019-01-01 or status != backlog)
 issues of Henry:
   name: henry
-  jql: (assignee = henry.miller or labels in (HM)) and status != closed and (createdDate > 2019-01-01 or status != backlog)
+  jql: project = UI and (assignee = henry.miller or labels in (HM)) and status != closed and (createdDate > 2019-01-01 or status != backlog)
 issues of Marco:
   name: marco
-  jql: (assignee = marco.diener or labels in (MD)) and status != closed and (createdDate > 2019-01-01 or status != backlog)
+  jql: project = UI and (assignee = marco.diener or labels in (MD)) and status != closed and (createdDate > 2019-01-01 or status != backlog)
 issues of Michael:
   name: michael
-  jql: (assignee = michael.whelan or labels in (MW)) and status != closed and (createdDate > 2019-01-01 or status != backlog)
+  jql: project = UI and (assignee = michael.whelan or labels in (MW)) and status != closed and (createdDate > 2019-01-01 or status != backlog)
 issues of Nuno:
   name: nuno
-  jql: (assignee = nuno.bettencourt or labels in (NB)) and status != closed and (createdDate > 2019-01-01 or status != backlog)
+  jql: project = UI and (assignee = nuno.bettencourt or labels in (NB)) and status != closed and (createdDate > 2019-01-01 or status != backlog)
+issues of Raj:
+  name: raj
+  jql: project = UI and (assignee = raj.thota or labels in (RT)) and status != closed and (createdDate > 2019-01-01 or status != backlog)
+
 issues of Peter:
   name: peter
   passive: true
-  jql: (assignee = peter.olah or labels in (PO)) and status != closed and (createdDate > 2019-01-01 or status != backlog)
-issues of Raj:
-  name: raj
-  jql: (assignee = raj.thota or labels in (RT)) and status != closed and (createdDate > 2019-01-01 or status != backlog)
+  jql: project = UI and (assignee = peter.olah or labels in (PO)) and status != closed and (createdDate > 2019-01-01 or status != backlog)

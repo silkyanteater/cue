@@ -1,3 +1,7 @@
+import re
+import shutil
+
+
 class CLR(object):
 
     reset = '\u001b[0m'
@@ -34,6 +38,7 @@ required_config_keys = (
 
 issue_display_keys = (
     ('title', 'Title'),
+    ('url', 'Link'),
     ('assignee', 'Assignee'),
     ('status', 'Status'),
     ('type', 'Type'),
@@ -51,26 +56,61 @@ issue_display_keys = (
 )
 display_key_len = max(len(item[1]) for item in issue_display_keys)
 
+issue_fields_oneline = (
+    ('url', 0, '', (CLR.l_black, {'browse/': CLR.l_yellow})),
+    ('title', 50, '', CLR.l_white),
+    ('assignee', 19, 'unassigned', CLR.green),
+    ('type', 8, '', CLR.l_blue),
+    ('status', 21, '', CLR.l_red),
+    ('resolution', 10, 'unresolved', CLR.l_black),
+    ('last_sprint', 11, 'backlog', CLR.cyan),
+    ('labels_str', 0, '', CLR.l_green),
+)
+issue_fields_oneline_separator = ' | '
+
+issue_fields_compact_head_separator = ' - '
 issue_fields_compact_head = (
-    ('key', 7, '', CLR.l_yellow),
+    ('url', 0, '', (CLR.l_black, {'browse/': CLR.l_yellow})),
     ('title', 125, '', CLR.l_white),
 )
-issue_fields_compact_head_separator = ' - '
-issue_fields_compact_parent = (125, '', CLR.l_cyan)
-issue_fields_compact_epic = (125, '', CLR.l_cyan)
+issue_fields_compact_conditional_rows = (
+    ('parent', 125, '', CLR.l_cyan, CLR.l_blue),
+    ('epic', 125, '', CLR.l_cyan, CLR.l_blue),
+)
+issue_fields_compact_body_separator = ' | '
 issue_fields_compact_body = (
     ('assignee', 19, 'unassigned', CLR.green),
     ('type', 8, '', CLR.l_blue),
     ('status', 21, '', CLR.l_red),
     ('resolution', 10, 'unresolved', CLR.l_black),
-    ('last_sprint', 7, 'backlog', CLR.cyan),
+    ('last_sprint', 11, 'backlog', CLR.cyan),
     ('target_version', 9, 'no target', CLR.magenta),
     ('time_spent_str', 7, '0', CLR.l_yellow),
     ('original_estimate_str', 7, '0', CLR.l_magenta),
     ('git_branches', 77, '', CLR.cyan),
+    ('labels_str', 0, '', CLR.l_green),
 )
-issue_fields_compact_body_separator = ' | '
-issue_fields_compact_vertical_separator = CLR.l_black + '·'*200 + CLR.reset
+issue_fields_long_key_color = CLR.l_yellow
+issue_fields_long_indent = 4
+issue_fields_long = (
+    ('title', 0, '', CLR.l_white, None),
+    ('url', 0, '', CLR.yellow, None),
+    ('assignee', 0, '', CLR.green, None),
+    ('status', 0, '', CLR.l_red, None),
+    ('type', 0, '', CLR.l_blue, None),
+    ('parent', 0, '', CLR.l_cyan, None),
+    ('epic', 0, '', CLR.l_cyan, None),
+    ('story_points', 0, '', CLR.green, None),
+    ('sprints_str', 0, '', CLR.magenta, None),
+    ('resolution', 0, 'unresolved', CLR.l_black, None),
+    ('target_version', 0, 'no target', CLR.magenta, None),
+    ('git_branches', 0, '', CLR.cyan, None),
+    ('created_str', 0, '', CLR.green, None),
+    ('labels_str', 0, '', CLR.l_green, None),
+    ('time_spent_str', 0, '', CLR.l_yellow, None),
+    ('original_estimate_str', 0, '', CLR.l_magenta, None),
+)
+issue_fields_vertical_separator = CLR.l_black + '·'*shutil.get_terminal_size().columns + CLR.reset
 
 queue_file_name = 'queue.txt'
 
@@ -84,4 +124,9 @@ cue c <issue reference>
 cue ls
    see queue
 cue q
-   step through queue and remove items when done'''
+   step through queue and remove items when done
+'''
+
+issue_ref_re = re.compile(r"[a-zA-Z]+-\d+")
+sprint_re = re.compile(r'(?<=name=).+?(?=,)')
+digits_re = re.compile(r'\d+')

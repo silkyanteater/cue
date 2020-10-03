@@ -10,22 +10,7 @@ import sys
 import subprocess
 import platform
 
-from const import (
-    CLR,
-    config_toml_file_name,
-    required_config_keys,
-    issue_display_keys,
-    issue_fields_compact_head,
-    issue_fields_compact_head_separator,
-    issue_fields_compact_parent,
-    issue_fields_compact_epic,
-    issue_fields_compact_body,
-    issue_fields_compact_body_separator,
-    issue_fields_compact_vertical_separator,
-    display_key_len,
-    queue_file_name,
-    request_timeout_seconds,
-)
+from const import *
 
 
 req = requests.models.PreparedRequest()
@@ -37,9 +22,6 @@ result_files_dir = None
 alert_sound_file = None
 all_issues_file = None
 all_issues_cache = None
-
-issue_ref_re = re.compile(r"[a-zA-Z]+-\d+")
-sprint_re = re.compile(r'(?<=name=).+?(?=,)')
 
 
 class JiraIssue(object):
@@ -53,8 +35,10 @@ class JiraIssue(object):
                 hit = sprint_re.search(sprint)
                 if hit is not None:
                     sprints.append(hit.group())
+            assert fields['project']['key'] == 'UI', f"Can't process a non-UI ticket, found '{fields['project']['key']}'"
             self.data = {
-                'key': (issue_obj['key'] or '').strip(),
+                'key': issue_obj['key'],
+                'url': urllib.parse.urljoin(jira_instance_url, f"/browse/{issue_obj['key']}"),
                 'title': (fields['summary'] or '').strip(),
                 'type': (fields['issuetype']['name'] or '').strip(),
                 'assignee': (fields['assignee']['name'] or '').strip() if fields['assignee'] is not None else '',
@@ -86,6 +70,7 @@ class JiraIssue(object):
                 'sprints_str': ', '.join(sprints),
                 'parent': fields.get('parent', dict()).get('key', ''),
             }
+            # TODO: add progress status
             self.core_data = {key: self.data[key] for key, value in issue_display_keys}
             self.core_data['key'] = self.data['key']
         else:
@@ -104,52 +89,92 @@ class JiraIssue(object):
             raise KeyError(attr)
 
     def __str__(self):
-        return self.format_short()
-
-    def format_short(self):
         return f"{self.key} - {self.title}"
 
-    def format_compact(self):
-        fields = list()
-        for key, length, default, color in issue_fields_compact_head:
+    def _get_formatted_fields(self, fields_definition, *, add_colors = True, add_empty = True, centered = True, expand_links = True, align_field_separator = False):
+
+        def render_field(color, field_str, width, *, add_colors = True, centered = True):
+            if centered:
+                if add_colors and color is not None:
+                    return f"{color}{field_str:^{width}}{CLR.reset}" if width > 0 else ''
+                else:
+                    return f"{field_str:^{width}}" if width > 0 else ''
+            else:
+                if add_colors and color is not None:
+                    return f"{color}{field_str:{width}}{CLR.reset}" if width > 0 else ''
+                else:
+                    return f"{field_str:{width}}" if width > 0 else ''
+
+        formatted_fields = list()
+        for fields in fields_definition:
+            if len(fields) == 4:
+                key, width, default, color = fields
+                insert_field_name = False
+            elif len(fields) == 5:
+                key, width, default, color, field_name_color = fields
+                insert_field_name = True
+            else:
+                raise AssertionError(f"Field definition item is invalid: {fields}")
             attr = getattr(self, key)
-            field_str = ellipsis(attr, length) if attr else default
-            fields.append(f"{color}{field_str:{length}}{CLR.reset}")
-        format_str = f"{issue_fields_compact_head_separator.join(fields)}"
+            if not add_empty and not attr:
+                continue
+            attr = expand_issue_link(attr) if expand_links is True else attr
+            _width = width if width > 0 else len(attr)
+            field_str = ellipsis(attr, _width) if attr else default
+            if add_colors is True and isinstance(color, (tuple, list)):
+                default_color, color_switchers = color
+                formatted_field = render_field(default_color, field_str, _width, add_colors=add_colors, centered=centered)
+                for after_this, color_to_switch in color_switchers.items():
+                    switch_position = formatted_field.find(after_this)
+                    if switch_position >= 0:
+                        insert_at_index = switch_position + len(after_this)
+                        formatted_field = formatted_field[:insert_at_index] + color_to_switch + formatted_field[insert_at_index:]
+            else:
+                formatted_field = render_field(color, field_str, _width, add_colors=add_colors, centered=centered)
+            if insert_field_name:
+                field_name = [item[1] for item in issue_display_keys if item[0] == key][0]
+                if align_field_separator is True:
+                    if add_colors is False or field_name_color is None:
+                        formatted_field = f"{field_name:>{display_key_len}}: {formatted_field}"
+                    else:
+                        formatted_field = f"{field_name_color}{field_name:>{display_key_len}}{CLR.reset}: {formatted_field}"
+                else:
+                    if add_colors is False or field_name_color is None:
+                        formatted_field = f"{field_name}: {formatted_field}"
+                    else:
+                        formatted_field = f"{field_name_color}{field_name}{CLR.reset}: {formatted_field}"
+            formatted_fields.append(formatted_field)
+        return formatted_fields
+
+    def format_oneline(self, add_colors = True):
+        return f"{issue_fields_oneline_separator.join(self._get_formatted_fields(issue_fields_oneline, add_colors=add_colors, centered=False))}"
+
+    def format_compact(self, add_colors = True):
         # TODO: show epic parent links
-        if self.parent:
-            length, default, color = issue_fields_compact_parent
-            parent = expand_issue_link(self.parent)
-            field_str = ellipsis(parent, length) if parent else default
-            format_str += f"\n  {CLR.blue}Parent{CLR.reset}: {color}{field_str:{length}}{CLR.reset}"
-        if self.epic:
-            length, default, color = issue_fields_compact_parent
-            attr = expand_issue_link(self.epic)
-            field_str = ellipsis(attr, length) if attr else default
-            format_str += f"\n  {CLR.blue}Epic{CLR.reset}: {color}{field_str:{length}}{CLR.reset}"
-        fields.clear()
-        for key, length, default, color in issue_fields_compact_body:
-            attr = getattr(self, key)
-            field_str = ellipsis(attr, length) if attr else default
-            fields.append(f"{color}{field_str:^{length}}{CLR.reset}")
-        format_str += f"\n    {issue_fields_compact_body_separator.lstrip()}{issue_fields_compact_body_separator.join(fields)}{issue_fields_compact_body_separator.rstrip()}"
+        format_str = f"{issue_fields_compact_head_separator.join(self._get_formatted_fields(issue_fields_compact_head, add_colors=add_colors, centered=False))}"
+        for conditional_row in self._get_formatted_fields(issue_fields_compact_conditional_rows, add_colors=add_colors, add_empty=False, centered=False):
+            format_str += f"\n  {conditional_row}"
+        body_str = issue_fields_compact_body_separator.join(self._get_formatted_fields(issue_fields_compact_body, add_colors=add_colors))
+        body_str = f"{issue_fields_compact_body_separator}{body_str}{issue_fields_compact_body_separator}".strip()
+        format_str += f"\n  {body_str}"
         return format_str
 
-    def format_long(self, prefix = '', expand_links = False):
-        lines = list()
-        for key, display_key in issue_display_keys:
-            attr = getattr(self, key)
-            attr = expand_issue_link(attr) if expand_links is True else attr
-            lines.append(f"{display_key:{display_key_len}} : {attr}")
-        return f'\n{prefix}'.join(lines)
-
-    def format(self, *, sort = None, prefix = '', expand_links = False):
-        if sort == 'short':
-            return self.format_short()
-        elif sort == 'long':
-            return self.format_long(prefix=prefix, expand_links=expand_links)
+    def format_long(self, *, add_colors = True, expand_links = True, align_field_separator = False):
+        used_indentation = '' if align_field_separator is True else ' '*issue_fields_long_indent
+        if add_colors is True:
+            format_str = f"{issue_fields_long_key_color}{self.key}{CLR.reset}\n{used_indentation}"
         else:
-            return self.format_compact()
+            format_str = f"{self.key}\n{used_indentation}"
+        format_str += ('\n' + used_indentation).join(self._get_formatted_fields(issue_fields_long, add_colors=add_colors, expand_links=expand_links, centered=False, align_field_separator=align_field_separator))
+        return format_str
+
+    def format(self, *, variant = None, add_colors = True, expand_links = True, align_field_separator = False):
+        if variant == 'oneline':
+            return self.format_oneline(add_colors=add_colors)
+        elif variant == 'long':
+            return self.format_long(add_colors=add_colors, expand_links=expand_links, align_field_separator=align_field_separator)
+        else:
+            return self.format_compact(add_colors=add_colors)
 
 
 class JiraIssues(dict):
@@ -176,19 +201,16 @@ class JiraIssues(dict):
     def to_list(self):
         return sorted(self.values(), key=lambda issue: issue.key, reverse=True)
 
-    def format(self, *, sort = None, expand_links = False):
-        if sort == 'long':
-            return '\n'.join(f"{issue.key}\n    {issue.format(sort=sort, prefix='    ', expand_links=expand_links)}" for issue in self.to_list())
-        elif sort == 'compact':
-            if issue_fields_compact_vertical_separator:
-                separator = '\n' + issue_fields_compact_vertical_separator + '\n'
-                return issue_fields_compact_vertical_separator + '\n' + \
-                    separator.join(issue.format(sort=sort, expand_links=expand_links) for issue in self.to_list()) + \
-                    '\n' + issue_fields_compact_vertical_separator
-            else:
-                return '\n'.join(issue.format(sort=sort, expand_links=expand_links) for issue in self.to_list())
+    def format(self, *, variant = None, add_colors = True, expand_links = True, add_separator_to_multiline = True, align_field_separator = False):
+        if variant == 'oneline':
+            return '\n'.join(issue.format(variant=variant, add_colors=add_colors, expand_links=expand_links) for issue in self.to_list())
         else:
-            return '\n'.join(issue.format(sort=sort, expand_links=expand_links) for issue in self.to_list())
+            formatted_issues = tuple(issue.format(variant=variant, add_colors=add_colors, expand_links=expand_links, align_field_separator=align_field_separator) for issue in self.to_list())
+            if add_separator_to_multiline is True and issue_fields_vertical_separator:
+                separator = '\n' + issue_fields_vertical_separator + '\n'
+                return issue_fields_vertical_separator + '\n' + separator.join(formatted_issues) + '\n' + issue_fields_vertical_separator
+            else:
+                return '\n'.join(formatted_issues)
 
     def filter(self, issure_refs):
         keys_to_remove = list()
@@ -210,6 +232,7 @@ def init_lib():
     get_user_config()
 
 def get_jira_data(url, headers = None):
+    # TODO: restrict fields only to what's necessary
     try:
         print(f"Sending request: {url}")
         if headers is None:
@@ -284,7 +307,7 @@ def get_active_query_names():
 
 def write_issues(filename, issues):
     with open(os.path.join(result_files_dir, f"{filename}.txt"), 'w+') as txtfile:
-        txtfile.write(issues.format(sort='long'))
+        txtfile.write(issues.format(variant='long', add_colors=False, expand_links=False, add_separator_to_multiline = False))
 
 def import_core_data_of_issue(issue_text):
     core_data = dict()
@@ -329,7 +352,7 @@ def load_all_issues_cache():
 def update_all_issues_cache(issues):
     all_issues_cache = load_all_issues_cache().update(issues)
     with open(os.path.join(result_files_dir, all_issues_file), 'w+') as txtfile:
-        txtfile.write(all_issues_cache.format(sort='long'))
+        txtfile.write(all_issues_cache.format(variant='long', add_colors=False, expand_links=False, add_separator_to_multiline = False))
 
 def get_updated_issues(issues, stored_issues):
     updated_issues = dict()
@@ -385,8 +408,11 @@ def print_queue():
     else:
         print("Queue is empty")
 
-def normalise_issue_ref(issue_ref):
-    return re.sub(r"([a-zA-Z])(?=\d)", r"\1-", issue_ref).upper()
+def convert_to_issue_ref(ref):
+    issue_ref = re.sub(r"([a-zA-Z])(?=\d)", r"\1-", str(ref)).upper()
+    if digits_re.match(issue_ref):
+        issue_ref = "UI-" + issue_ref
+    return issue_ref
 
 def show_help():
     sys.stdout.write(help_text)
@@ -394,8 +420,8 @@ def show_help():
 def get_format_option(quickparse):
     format = 'compact'
     for option in quickparse.options:
-        if option == '--short':
-            format = 'short'
+        if option == '--oneline':
+            format = 'oneline'
         elif option == '--long':
             format = 'long'
     return format
@@ -423,7 +449,7 @@ def sound_alert_if_queue_not_empty():
         print("Queue is empty")
 
 def ellipsis(string, length):
-    if len(string) <= length:
+    if len(string) <= length or length <= 0:
         return string
     else:
         return f"{string[:length-1]}…"
