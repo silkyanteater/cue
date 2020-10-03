@@ -207,8 +207,11 @@ class JiraIssues(dict):
         else:
             formatted_issues = tuple(issue.format(variant=variant, add_colors=add_colors, expand_links=expand_links, align_field_separator=align_field_separator) for issue in self.to_list())
             if add_separator_to_multiline is True and issue_fields_vertical_separator:
-                separator = '\n' + issue_fields_vertical_separator + '\n'
-                return issue_fields_vertical_separator + '\n' + separator.join(formatted_issues) + '\n' + issue_fields_vertical_separator
+                if add_colors is True and issue_fields_vertical_separator_color is not None:
+                    separator = f"{issue_fields_vertical_separator_color}{issue_fields_vertical_separator}{CLR.reset}"
+                else:
+                    separator = issue_fields_vertical_separator
+                return separator + '\n' + f"\n{separator}\n".join(formatted_issues) + '\n' + separator
             else:
                 return '\n'.join(formatted_issues)
 

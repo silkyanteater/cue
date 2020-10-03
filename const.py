@@ -110,7 +110,8 @@ issue_fields_long = (
     ('time_spent_str', 0, '', CLR.l_yellow, None),
     ('original_estimate_str', 0, '', CLR.l_magenta, None),
 )
-issue_fields_vertical_separator = CLR.l_black + '·'*shutil.get_terminal_size().columns + CLR.reset
+issue_fields_vertical_separator = '·' * shutil.get_terminal_size().columns
+issue_fields_vertical_separator_color = CLR.l_black
 
 queue_file_name = 'queue.txt'
 

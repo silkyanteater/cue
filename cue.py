@@ -64,7 +64,7 @@ def execute_command(quickparse):
             issues = stored_issues
         if len(issues) > 0:
             update_all_issues_cache(issues)
-            print(issues.format(variant=get_format_option(quickparse), expand_links=True, align_field_separator = True))
+            print(issues.format(variant=get_format_option(quickparse), add_colors=sys.stdout.isatty(), add_separator_to_multiline=sys.stdout.isatty(), expand_links=True, align_field_separator = True))
         else:
             print(f"{query_title}: no issues found")
 
@@ -81,7 +81,7 @@ def show_issue(quickparse):
             new_issues = get_jira_issues(jira_issue_refs)
         issues = JiraIssues().update(cache_issues).update(new_issues)
     update_all_issues_cache(issues)
-    print(issues.format(variant=get_format_option(quickparse), expand_links=True, align_field_separator = True))
+    print(issues.format(variant=get_format_option(quickparse), add_colors=sys.stdout.isatty(), add_separator_to_multiline=sys.stdout.isatty(), expand_links=True, align_field_separator = True))
 
 def open_issue_in_browser(quickparse):
     assert len(quickparse.parameters) >= 1, f"Issue reference is missing"
