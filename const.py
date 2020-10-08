@@ -4,6 +4,8 @@ import shutil
 
 
 SCRIPT_PATH = os.environ.get('SCRIPT_PATH')
+QUEUE_ALERT_PLAY_SOUND = bool(os.environ.get('QUEUE_ALERT_PLAY_SOUND', False))
+QUEUE_ALERT_SHOW_SYSTEM_NOTIFICATION = bool(os.environ.get('QUEUE_ALERT_SHOW_SYSTEM_NOTIFICATION', False))
 
 class CLR(object):
 

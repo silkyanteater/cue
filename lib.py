@@ -444,13 +444,14 @@ def alert_if_queue_not_empty():
     if os.path.isfile(queue_file_path):
         queue_items = [line for line in open(queue_file_path).read().strip().split('\n') if len(line.strip()) > 0]
         if len(queue_items) > 0:
-            if os.path.isfile(alert_sound_file):
-                play_sound('finealert.wav')
-            elif alert_sound_file:
-                print(f"Alert sound file not found: {alert_sound_file}")
-            message = f"Queue length: {len(queue_items)}"
-            show_system_notification(message)
-            print(message)
+            if QUEUE_ALERT_PLAY_SOUND:
+                if os.path.isfile(alert_sound_file):
+                    play_sound('finealert.wav')
+                elif alert_sound_file:
+                    print(f"Alert sound file not found: {alert_sound_file}")
+            if QUEUE_ALERT_SHOW_SYSTEM_NOTIFICATION:
+                show_system_notification('\n'.join(queue_items))
+            print(f"Queue length: {len(queue_items)}")
         else:
             print("Queue is empty")
     else:
