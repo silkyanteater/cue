@@ -199,7 +199,7 @@ class JiraIssues(dict):
         return '\n'.join(str(issue) for issue in self.values())
 
     def to_list(self):
-        return sorted(self.values(), key=lambda issue: issue.key, reverse=True)
+        return sorted(self.values(), key=lambda issue: int(issue.key.split('-')[1]))
 
     def format(self, *, variant = None, add_colors = True, expand_links = True, add_separator_to_multiline = True, align_field_separator = False):
         if variant == 'oneline':

@@ -57,6 +57,24 @@ def execute_command(quickparse):
         else:
             print(f"{query_title}: no issues found")
 
+def execute_query(quickparse):
+    assert len(quickparse.parameters) > 0, 'Query expected'
+    assert len(quickparse.parameters) == 1, 'Too many parameters'
+    issues = search_issues(quickparse.parameters[0])
+    update_all_issues_cache(issues)
+    print(issues.format(variant=get_format_option(quickparse), add_colors=sys.stdout.isatty(), add_separator_to_multiline=sys.stdout.isatty(), expand_links=True, align_field_separator = True))
+
+def search_issues_by_text(quickparse):
+    assert len(quickparse.parameters) > 0, 'Keywords are expected'
+    keywords = ' '.join(quickparse.parameters)
+    jql = f'text ~ "{keywords}"'
+    if '--project' in quickparse.options:
+        jql += f" and project={quickparse.options['--project'].upper()}"
+    jql += ' and issuetype != Sub-task'
+    issues = search_issues(jql)
+    update_all_issues_cache(issues)
+    print(issues.format(variant=get_format_option(quickparse), add_colors=sys.stdout.isatty(), add_separator_to_multiline=sys.stdout.isatty(), expand_links=True, align_field_separator = True))
+
 def show_issue(quickparse):
     assert len(quickparse.parameters) >= 1, f"Issue reference is missing"
     jira_issue_refs = [convert_to_issue_ref(ref) for ref in quickparse.parameters]
@@ -83,6 +101,8 @@ commands_config = {
     ('h', 'help'): show_help,
     ('quit', 'exit'): exit_cue,
     ('x', 'exec', 'execute'): execute_command,
+    ('xq', 'exec-query', 'execute-query'): execute_query,
+    ('s', 'search'): search_issues_by_text,
     ('c', 'see', 'show'): show_issue,
     ('l', 'ls', 'list'): print_queue,
     ('q', 'queue'): step_through_queue,
@@ -95,6 +115,7 @@ options_config = (
     ('-o', '--oneline'),
     ('-l', '--long'),
     ('-r', '--refresh'),
+    ('-p', '--project', str),
 )
 
 
