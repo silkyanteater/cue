@@ -86,7 +86,7 @@ commands_config = {
     ('c', 'see', 'show'): show_issue,
     ('l', 'ls', 'list'): print_queue,
     ('q', 'queue'): step_through_queue,
-    ('a', 'alert'): sound_alert_if_queue_not_empty,
+    ('a', 'alert'): alert_if_queue_not_empty,
     ('o', 'open'): open_issue_in_browser,
 }
 

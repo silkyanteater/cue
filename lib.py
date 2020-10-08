@@ -436,7 +436,10 @@ def play_sound(filename):
         p = subprocess.Popen(['afplay', os.path.join(os.getcwd(), filename)],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
     output, err = p.communicate()
 
-def sound_alert_if_queue_not_empty():
+def show_system_notification(message):
+    os.system(f"notify-send '{message}'")
+
+def alert_if_queue_not_empty():
     queue_file_path = os.path.join(result_files_dir, queue_file_name)
     if os.path.isfile(queue_file_path):
         queue_items = [line for line in open(queue_file_path).read().strip().split('\n') if len(line.strip()) > 0]
@@ -445,7 +448,9 @@ def sound_alert_if_queue_not_empty():
                 play_sound('finealert.wav')
             elif alert_sound_file:
                 print(f"Alert sound file not found: {alert_sound_file}")
-            print(f"Queue length: {len(queue_items)}")
+            message = f"Queue length: {len(queue_items)}"
+            show_system_notification(message)
+            print(message)
         else:
             print("Queue is empty")
     else:
