@@ -32,6 +32,9 @@ class CLR(object):
 
 config_toml_file_name = 'config.toml'
 
+# oneline, compact, long
+default_listing_format = 'oneline'
+
 required_config_keys = (
     'jira_instance_url',
     'jira_key_file',
@@ -39,6 +42,31 @@ required_config_keys = (
     'result_files_dir',
     'alert_sound_file',
     'all_issues_file',
+)
+
+requested_issue_fields = (
+    'summary',
+    'issuetype',
+    'assignee',
+    'customfield_10104',
+    'project',
+    'status',
+    'resolution',
+    'customfield_13621',
+    'customfield_11207',
+    'creator',
+    'created',
+    'updated',
+    'labels',
+    'description',
+    'timespent',
+    'timeestimate',
+    'timeoriginalestimate',
+    'progress',
+    'customfield_13613',
+    'customfield_13611',
+    'customfield_10100',
+    'customfield_10106',
 )
 
 issue_display_keys = (

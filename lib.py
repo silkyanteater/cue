@@ -71,6 +71,8 @@ class JiraIssue(object):
                 'parent': fields.get('parent', dict()).get('key', ''),
             }
             # TODO: add progress status
+            # TODO: add a field as how old the data is
+            # TODO: process non-UI tickets
             self.core_data = {key: self.data[key] for key, value in issue_display_keys}
             self.core_data['key'] = self.data['key']
         else:
@@ -234,14 +236,13 @@ class JiraIssues(dict):
 def init_lib():
     get_user_config()
 
-def get_jira_data(url, headers = None):
-    # TODO: restrict fields only to what's necessary
+def get_jira_data(url, *, query_params = None, headers = None):
+    query_params = dict(query_params)
+    query_params.update({'fields': ','.join(requested_issue_fields)})
+    req.prepare_url(url, query_params)
     try:
-        print(f"Sending request: {url}")
-        if headers is None:
-            resp = requests.get(url, allow_redirects=True, timeout=request_timeout_seconds)
-        else:
-            resp = requests.get(url, headers=headers, allow_redirects=True, timeout=request_timeout_seconds)
+        print(f"Sending request: {req.url}")
+        resp = requests.get(url, params=query_params, headers=headers, allow_redirects=True, timeout=request_timeout_seconds)
     except Exception as e:
         raise AssertionError(str(e))
     except KeyboardInterrupt:
@@ -255,15 +256,15 @@ def get_jira_data(url, headers = None):
     return response_json
 
 def search_issues(jql, *, maxResults = -1, startAt = None):
+    # TODO: limit maxResults
     url = urllib.parse.urljoin(jira_instance_url, '/rest/api/2/search')
-    queryparams = {
+    query_params = {
         'jql': jql,
         'maxResults': maxResults,
     }
     if startAt is not None:
-        queryparams['startAt'] = startAt
-    req.prepare_url(url, queryparams)
-    issues = JiraIssues(get_jira_data(req.url, headers=jira_request_headers)['issues'])
+        query_params['startAt'] = startAt
+    issues = JiraIssues(get_jira_data(url, query_params=query_params, headers=jira_request_headers)['issues'])
     update_all_issues_cache(issues)
     return issues
 
@@ -421,10 +422,12 @@ def show_help():
     sys.stdout.write(help_text)
 
 def get_format_option(quickparse):
-    format = 'compact'
+    format = default_listing_format
     for option in quickparse.options:
         if option == '--oneline':
             format = 'oneline'
+        elif option == '--compact':
+            format = 'compact'
         elif option == '--long':
             format = 'long'
     return format
@@ -469,3 +472,16 @@ def expand_issue_link(field):
         if field in issues_cache:
             return f"{field} - {issues_cache[field].title}"
     return field
+
+def add_extra_params(jql, quickparse):
+    required_param_count = jql.count('%s')
+    if required_param_count > 0:
+        assert '--extra' in quickparse.options, f"Expected {required_param_count} extra parameters to substitute"
+        extra_params = quickparse.options['--extra'].split(',')
+        assert required_param_count == len(extra_params), f"Expected {required_param_count} extra parameters to substitute and got {len(extra_params)}"
+        for extra_param in extra_params:
+            jql = jql.replace('%s', convert_to_issue_ref(extra_param), 1)
+        return jql
+    else:
+        assert '--extra' not in quickparse.options, f"No extra parameters required, got: {quickparse.options['--extra']}"
+        return jql

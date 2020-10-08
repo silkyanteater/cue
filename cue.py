@@ -43,10 +43,10 @@ def execute_command(quickparse):
         query_names = incoming_query_names
     for query_name in query_names:
         stored_issues = get_stored_issues_for_query(query_name)
-        # TODO: add TTL to queries
         if len(stored_issues) == 0 or '--refresh' in quickparse.options:
             query_title, jql = get_query(query_name)
-            issues = search_issues(jql)
+            # TODO: make extra params work with multiple query names
+            issues = search_issues(add_extra_params(jql, quickparse))
             update_queue(query_title, get_updated_issues(issues, stored_issues))
             write_issues(query_title, issues)
         else:
@@ -70,7 +70,6 @@ def search_issues_by_text(quickparse):
     jql = f'text ~ "{keywords}"'
     if '--project' in quickparse.options:
         jql += f" and project={quickparse.options['--project'].upper()}"
-    jql += ' and issuetype != Sub-task'
     issues = search_issues(jql)
     update_all_issues_cache(issues)
     print(issues.format(variant=get_format_option(quickparse), add_colors=sys.stdout.isatty(), add_separator_to_multiline=sys.stdout.isatty(), expand_links=True, align_field_separator = True))
@@ -113,9 +112,11 @@ commands_config = {
 options_config = (
     ('-a', '--all'),
     ('-o', '--oneline'),
+    ('-c', '--compact'),
     ('-l', '--long'),
     ('-r', '--refresh'),
     ('-p', '--project', str),
+    ('-x', '--extra', str),
 )
 
 
