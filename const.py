@@ -92,8 +92,9 @@ display_key_len = max(len(item[1]) for item in issue_display_keys)
 
 issue_fields_oneline = (
     ('url', 0, '', (CLR.l_black, {'browse/': CLR.l_yellow})),
-    ('title', 50, '', CLR.l_white),
+    ('title', 70, '', CLR.l_white),
     ('assignee', 19, 'unassigned', CLR.green),
+    ('creator', 19, '', CLR.yellow),
     ('type', 8, '', CLR.l_blue),
     ('status', 21, '', CLR.l_red),
     ('resolution', 10, 'unresolved', CLR.l_black),

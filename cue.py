@@ -94,7 +94,19 @@ def open_issue_in_browser(quickparse):
     for ref in (convert_to_issue_ref(ref) for ref in quickparse.parameters):
         webbrowser.open(f"https://jira.pbs.one/browse/{ref}")
 
-
+# TODO: add a command to list all queries
+# TODO: add a command to update all queries that are older than a certain time and not passive
+# TODO: truncate output at the end of the line
+# TODO: match column widths in output
+# TODO: save parametrised queries together with parameters
+# TODO: save query results only as keys and put the issues in the registry
+# TODO: show the issue count at the end of the query
+# TODO: show the time of the request at the end of the query
+# TODO: add query for epics that are not in the right state to their child issues
+# TODO: find tickets in review with accepted revisions
+# TODO: add limit to a query as a parameter in queries.yaml
+# TODO: query for checking initials labels on active tickets
+# TODO: check if the query names are unique
 commands_config = {
     '': handle_no_command,
     ('h', 'help'): show_help,

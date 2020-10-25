@@ -70,9 +70,10 @@ class JiraIssue(object):
                 'sprints_str': ', '.join(sprints),
                 'parent': fields.get('parent', dict()).get('key', ''),
             }
-            # TODO: add progress status
+            # TODO: add progress status, attachments
             # TODO: add a field as how old the data is
             # TODO: process non-UI tickets
+            # TODO: parent issue doesn't come up for sub-tasks
             self.core_data = {key: self.data[key] for key, value in issue_display_keys}
             self.core_data['key'] = self.data['key']
         else:

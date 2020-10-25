@@ -23,10 +23,14 @@ UI tickets today:
   name: today
   passive: true
   jql: project = UI AND issuetype != Sub-task AND createdDate > startOfDay()
-UI tickets this week:
+UI tickets created this week:
   name: week
   passive: true
   jql: project = UI AND issuetype != Sub-task AND createdDate > startOfWeek()
+UI tickets created in the last two weeks:
+  name: 2weeks
+  passive: true
+  jql: project = UI AND issuetype != Sub-task AND createdDate > startOfWeek(-1)
 active UI epics:
   name: epics
   passive: true
@@ -35,14 +39,21 @@ dev regression tickets:
   name: devreg
   passive: true
   jql: project = UI AND labels in (nathan_mo_4_31) AND labels in (dev_regression) AND labels not in (DevRegressionPassed, no_reg, no_regression, ops_no_reg)
-issues of epic:
+open issues of epic:
   name: epic
   passive: true
   jql: project = UI AND status != Closed AND "Epic Link" = %s
+all issues of epic:
+  name: epicall
+  passive: true
+  jql: project = UI AND "Epic Link" = %s
 
 merge to master:
   name: mtm
-  jql: project = UI AND status = "Merge To Master DOING" AND "Epic Link" not in (UI-771, UI-1010)
+  jql: project = UI AND issuetype not in (Epic, Sub-task) AND status = "Merge To Master DOING" AND "Epic Link" not in (UI-771, UI-1010)
+all active tickets:
+  name: active
+  jql: project = UI AND issuetype not in (Epic, Sub-task) AND status not in (Backlog, Closed) AND (labels not in (UI42) OR labels is null)
 top 5 support issues:
   name: sup5
   jql: project = UI AND labels in (supTop5)
@@ -55,6 +66,12 @@ all support issues:
 issues without regression labels:
   name: noreg
   jql: project = UI AND labels not in (qa_regression, dev_regression) AND status not in (Closed, Backlog, TODO, DOING) AND type != epic
+UI42:
+  name: ui42
+  jql: project = UI AND labels in (UI42) AND status != Closed
+UI12:
+  name: ui12
+  jql: project = UI AND labels in (UI12) AND status != Closed
 
 issues of Gabs:
   name: gabs
