@@ -248,6 +248,8 @@ def get_jira_data(url, *, query_params = None, headers = None):
         raise AssertionError(str(e))
     except KeyboardInterrupt:
         raise AssertionError()
+    if resp.status_code != 200:
+        raise AssertionError(f"HTTP Error: {resp.status_code} - {requests.status_codes._codes.get(resp.status_code, ['N/A'])[0]}")
     try:
         response_json = json.loads(resp.content)
     except Exception as e:
