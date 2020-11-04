@@ -249,7 +249,12 @@ def get_jira_data(url, *, query_params = None, headers = None):
     except KeyboardInterrupt:
         raise AssertionError()
     if resp.status_code != 200:
-        raise AssertionError(f"HTTP Error: {resp.status_code} - {requests.status_codes._codes.get(resp.status_code, ['N/A'])[0]}")
+        if resp.headers.get('X-Seraph-LoginReason') == 'AUTHENTICATED_FAILED':
+            raise AssertionError(f"HTTP Error: {resp.status_code} - {requests.status_codes._codes.get(resp.status_code, ['N/A'])[0]} > check login credentials")
+        elif resp.headers.get('X-Seraph-LoginReason') == 'AUTHENTICATION_DENIED':
+            raise AssertionError(f"HTTP Error: {resp.status_code} - {requests.status_codes._codes.get(resp.status_code, ['N/A'])[0]} > try a browser login, captcha authentication may have been triggered")
+        else:
+            raise AssertionError(f"HTTP Error: {resp.status_code} - {requests.status_codes._codes.get(resp.status_code, ['N/A'])[0]}")
     try:
         response_json = json.loads(resp.content)
     except Exception as e:
