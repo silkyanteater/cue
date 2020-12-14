@@ -31,6 +31,10 @@ UI tickets created in the last two weeks:
   name: 2weeks
   passive: true
   jql: project = UI AND issuetype != Sub-task AND createdDate > startOfWeek(-1)
+UI tickets created in the last four weeks:
+  name: 4weeks
+  passive: true
+  jql: project = UI AND issuetype != Sub-task AND createdDate > startOfWeek(-3)
 active UI epics:
   name: epics
   passive: true
@@ -38,7 +42,7 @@ active UI epics:
 dev regression tickets:
   name: devreg
   passive: true
-  jql: project = UI AND labels in (nathan_mo_4_31) AND labels in (dev_regression) AND labels not in (DevRegressionPassed, no_reg, no_regression, ops_no_reg)
+  jql: project = UI AND labels in (nathan_mo_4_32) AND labels in (dev_regression) AND labels not in (DevRegressionPassed, no_reg, no_regression, ops_no_reg)
 open issues of epic:
   name: epic
   passive: true
@@ -50,7 +54,7 @@ all issues of epic:
 
 merge to master:
   name: mtm
-  jql: project = UI AND labels not in (UI42) AND issuetype not in (Epic, Sub-task) AND status = "Merge To Master DOING" AND "Epic Link" not in (UI-771, UI-1010)
+  jql: project = UI AND (labels not in (UI42) OR labels is null) AND issuetype not in (Epic, Sub-task) AND status = "Merge To Master DOING" AND "Epic Link" not in (UI-771, UI-1010)
 all active tickets:
   name: active
   jql: project = UI AND issuetype not in (Epic, Sub-task) AND status not in (Backlog, Closed) AND (labels not in (UI42) OR labels is null)
