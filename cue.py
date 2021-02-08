@@ -94,6 +94,7 @@ def open_issue_in_browser(quickparse):
     for ref in (convert_to_issue_ref(ref) for ref in quickparse.parameters):
         webbrowser.open(f"https://jira.pbs.one/browse/{ref}")
 
+# TODO: outoging requests have all possible query params even those without value - remove them
 # TODO: add a command to list all queries
 # TODO: add a command to update all queries that are older than a certain time and not passive
 # TODO: truncate output at the end of the line
