@@ -76,6 +76,9 @@ UI42:
 UI12:
   name: ui12
   jql: project = UI AND labels in (UI12) AND status != Closed
+A42:
+  name: a42
+  jql: project = UI AND labels in (A42) AND status != Closed
 
 issues of Gabs:
   name: gabs
