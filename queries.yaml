@@ -1,19 +1,19 @@
-targeting 4.30 FE:
-  name: 430FE
+targeting 4.34 FE:
+  name: 434FE
   passive: true
-  jql: project not in (QAT) AND "Target Version/s" in (4_30_FE)
+  jql: project not in (QAT) AND "Target Version/s" in (4_34_FE)
 targeting 4.31:
-  name: "431"
+  name: "435"
   passive: true
-  jql: project = UI AND "Target Version/s" in (4_31)
-targeting 4.30 FE:
-  name: 431FE
+  jql: project = UI AND "Target Version/s" in (4_35)
+targeting 4.35 FE:
+  name: 435FE
   passive: true
-  jql: project not in (QAT) AND "Target Version/s" in (4_31_FE)
+  jql: project not in (QAT) AND "Target Version/s" in (4_35_FE)
 
-regression issues 4.31:
-  name: reg431
-  jql: project = UI AND affectedVersion = 4_31 AND status != Closed
+regression issues:
+  name: reg
+  jql: project = UI AND affectedVersion is not null AND status != Closed
 
 all open non-subtask UI tickets:
   name: uiopen
@@ -39,10 +39,10 @@ active UI epics:
   name: epics
   passive: true
   jql: project = UI AND issuetype = Epic AND status != Closed
-dev regression tickets:
+dev regression tickets 4_35:
   name: devreg
   passive: true
-  jql: project = UI AND labels in (nathan_mo_4_32) AND labels in (dev_regression) AND labels not in (DevRegressionPassed, no_reg, no_regression, ops_no_reg)
+  jql: project = UI AND labels in (nathan_mo_4_35) AND labels in (dev_regression) AND labels not in (DevRegressionPassed, no_reg, no_regression, ops_no_reg)
 open issues of epic:
   name: epic
   passive: true
@@ -57,25 +57,19 @@ merge to master:
   jql: project = UI AND (labels not in (UI42) OR labels is null) AND issuetype not in (Epic, Sub-task) AND status = "Merge To Master DOING" AND "Epic Link" not in (UI-771, UI-1010)
 all active tickets:
   name: active
-  jql: project = UI AND issuetype not in (Epic, Sub-task) AND status not in (Backlog, Closed) AND (labels not in (UI42) OR labels is null)
-top 5 support issues:
-  name: sup5
-  jql: project = UI AND labels in (supTop5)
-top 5-10 support issues:
-  name: sup10
-  jql: project = UI AND labels in (supTop10)
+  jql: project = UI AND issuetype not in (Epic, Sub-task) AND status not in (Backlog, Closed) AND (labels not in (A42) OR labels is null)
 all support issues:
   name: sup
   jql: issueFunction in issuesInEpics("issueFunction in issueFieldMatch('project in (UI)', summary, 'Trading Support')") AND status != Closed
 issues without regression labels:
   name: noreg
   jql: project = UI AND labels not in (qa_regression, dev_regression) AND status not in (Closed, Backlog, TODO, DOING) AND type != epic
-UI42:
-  name: ui42
-  jql: project = UI AND labels in (UI42) AND status != Closed
 UI12:
   name: ui12
   jql: project = UI AND labels in (UI12) AND status != Closed
+UI42:
+  name: ui42
+  jql: project = UI AND labels in (UI42) AND status != Closed
 A42:
   name: a42
   jql: project = UI AND labels in (A42) AND status != Closed
@@ -89,17 +83,38 @@ issues of Henry:
 issues of Marco:
   name: marco
   jql: project = UI AND (assignee = marco.diener or labels in (MD)) AND status != closed AND (createdDate > 2019-01-01 or status != backlog)
-issues of Michael:
-  name: michael
-  jql: project = UI AND (assignee = michael.whelan or labels in (MW)) AND status != closed AND (createdDate > 2019-01-01 or status != backlog)
 issues of Nuno:
   name: nuno
   jql: project = UI AND (assignee = nuno.bettencourt or labels in (NB)) AND status != closed AND (createdDate > 2019-01-01 or status != backlog)
-issues of Raj:
-  name: raj
-  jql: project = UI AND (assignee = raj.thota or labels in (RT)) AND status != closed AND (createdDate > 2019-01-01 or status != backlog)
-
 issues of Peter:
   name: peter
   passive: true
   jql: project = UI AND (assignee = peter.olah or labels in (PO)) AND status != closed AND (createdDate > 2019-01-01 or status != backlog)
+issues of Raj:
+  name: raj
+  jql: project = UI AND (assignee = raj.thota or labels in (RT)) AND status != closed AND (createdDate > 2019-01-01 or status != backlog)
+issues of Viktor:
+  name: viktor
+  jql: project = UI AND (assignee = viktorr or labels in (VR)) AND status != closed
+
+created by Gabs:
+  name: bygabs
+  jql: project = UI AND creator = gabriella.libonati
+created by Henry:
+  name: byhenry
+  jql: project = UI AND creator = henry.miller
+created by Marco:
+  name: bymarco
+  jql: project = UI AND creator = marco.diener
+created by Nuno:
+  name: bynuno
+  jql: project = UI AND creator = nuno.bettencourt
+created by Peter:
+  name: bypeter
+  jql: project = UI AND creator = peter.olah
+created by Raj:
+  name: byraj
+  jql: project = UI AND creator = raj.thota
+created by Viktor:
+  name: byviktor
+  jql: project = UI AND creator = viktorr
