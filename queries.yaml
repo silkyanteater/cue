@@ -66,13 +66,13 @@ issues without regression labels:
   jql: project = UI AND labels not in (qa_regression, dev_regression) AND status not in (Closed, Backlog, TODO, DOING) AND type != epic
 UI12:
   name: ui12
-  jql: project = UI AND labels in (UI12) AND status != Closed
+  jql: labels in (UI12)
 UI42:
   name: ui42
-  jql: project = UI AND labels in (UI42) AND status != Closed
+  jql: labels in (UI42)
 A42:
   name: a42
-  jql: project = UI AND labels in (A42) AND status != Closed
+  jql: labels in (A42)
 
 issues of Gabs:
   name: gabs
