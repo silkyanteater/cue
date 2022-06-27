@@ -92,7 +92,7 @@ def show_issue(quickparse):
 def open_issue_in_browser(quickparse):
     assert len(quickparse.parameters) >= 1, f"Issue reference is missing"
     for ref in (convert_to_issue_ref(ref) for ref in quickparse.parameters):
-        webbrowser.open(f"https://jira.pbs.one/browse/{ref}")
+        webbrowser.open(f"https://jira.playtech.com/browse/{ref}")
 
 # TODO: outoging requests have all possible query params even those without value - remove them
 # TODO: add a command to list all queries
